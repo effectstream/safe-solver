@@ -1,4 +1,6 @@
-# safe-solver Quick Start
+# Safe Solver Quick Start
+
+<img width="1372" height="1312" alt="Screenshot 2025-12-17 at 7 39 13 PM" src="https://github.com/user-attachments/assets/386b3b6e-4d97-4e89-a4c8-75036f14f80a" />
 
 ```sh
 # Check for external dependencies
