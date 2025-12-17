@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=BBH+Bogle&display=swap" rel="stylesheet">
+    <title>Safe Solver</title>
+  </head>
+  <body>
+    <div id="app-container">
+      <header id="game-header">
+        <h1>Safe Solver</h1>
+        <div id="tokens-section" style="display: flex; align-items: center; gap: 20px;">
+            <div id="tokens-display" style="font-weight: bold; font-size: 18px;">TOKENS: 0</div>
+            <button id="btn-add-tokens">ADD tokens</button>
+        </div>
+        <button id="btn-mute">🔊</button>
+        <button id="btn-set-name" style="display: none;">SET NAME</button>
+        <button id="btn-connect-wallet">CONNECT WALLET</button>
+      </header>
+      <div id="game-layout">
+        <div id="game-view">
+          <div id="hud-center">
+            <div id="score">Score: 1.00</div>
+            <div id="info">Choose a safe to open...</div>
+            <button id="btn-cash-out" class="hidden">KEEP REWARD</button>
+          </div>
+          <div id="level">Level: 1</div>
+          <div id="multiplier-badge" class="hidden">
+            <div class="ribbon-rotating">
+                <div class="ribbon-text">
+                    <span class="mult-val" id="multiplier-value">1.0x</span>
+                    <span class="mult-label">PRIZE</span>
+                </div>
+            </div>
+          </div>
+          <div id="main-screen">
+            <h1>Safe Solver</h1>
+            <button id="btn-start">START</button>
+            <button id="btn-demo">PLAY DEMO</button>
+          </div>
+        </div>
+        <aside id="leaderboard">
+          <h2>Leaderboard</h2>
+          <div id="leaderboard-header">
+            <span>Place</span>
+            <span>Address</span>
+            <span>Points</span>
+          </div>
+          <ul id="leaderboard-list">
+            <!-- Items injected by JS -->
+          </ul>
+        </aside>
+      </div>
+    </div>
+    <div id="wallet-modal" class="modal">
+      <div class="modal-content">
+        <span class="close" id="close-modal">&times;</span>
+        <h2>Select Wallet</h2>
+        <div id="loading-wallets" style="display:none; text-align:center; padding:20px;">Scanning for wallets...</div>
+        <ul id="wallet-list" class="wallet-list">
+          <!-- Wallets will be injected here -->
+        </ul>
+        <div id="local-wallet-info" style="margin-top: 20px; font-size: 0.9em; color: #555; word-break: break-all; border-top: 1px solid #ccc; padding-top: 10px;"></div>
+      </div>
+    </div>
+    <div id="add-tokens-modal" class="modal">
+      <div class="modal-content">
+        <span class="close" id="close-add-tokens-modal">&times;</span>
+        <h2>Add Tokens</h2>
+        <p>Add 10 tokens to your balance?</p>
+        <div style="display: flex; justify-content: center; gap: 10px; margin-top: 20px;">
+          <button id="btn-confirm-add-tokens" style="padding: 10px 20px; cursor: pointer;">Confirm</button>
+          <button id="btn-cancel-add-tokens" style="padding: 10px 20px; cursor: pointer;">Cancel</button>
+        </div>
+      </div>
+    </div>
+    <div id="set-name-modal" class="modal">
+      <div class="modal-content">
+        <span class="close" id="close-set-name-modal">&times;</span>
+        <h2>Set Name</h2>
+        <p>Enter your name:</p>
+        <input type="text" id="input-player-name" placeholder="Your Name" style="width: 100%; padding: 10px; margin: 10px 0; box-sizing: border-box;" />
+        <div style="display: flex; justify-content: center; gap: 10px; margin-top: 20px;">
+          <button id="btn-confirm-set-name" style="padding: 10px 20px; cursor: pointer;">Save</button>
+          <button id="btn-cancel-set-name" style="padding: 10px 20px; cursor: pointer;">Cancel</button>
+        </div>
+      </div>
+    </div>
+    <div id="alert-modal" class="modal">
+      <div class="modal-content">
+        <span class="close" id="close-alert-modal">&times;</span>
+        <h2 id="alert-title">Safe Solver</h2>
+        <p id="alert-message"></p>
+        <div style="display: flex; justify-content: center; margin-top: 20px;">
+          <button id="btn-alert-ok" style="padding: 10px 20px; cursor: pointer;">OK</button>
+        </div>
+      </div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

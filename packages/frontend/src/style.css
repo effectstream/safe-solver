@@ -1,0 +1,339 @@
+body {
+  margin: 0;
+  overflow: hidden;
+  font-family: "BBH Bogle", sans-serif;
+  height: 100vh;
+  width: 100vw;
+}
+
+.bbh-bogle-regular {
+  font-family: "BBH Bogle", sans-serif;
+  font-weight: 400;
+  font-style: normal;
+}
+
+#app-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+}
+
+#game-header {
+  background-color: #222;
+  color: #ffd700;
+  padding: 10px 20px;
+  border-bottom: 2px solid #ffd700;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.5);
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+#game-header h1 {
+  margin: 0;
+  font-size: 24px;
+}
+
+#btn-connect-wallet, #btn-add-tokens, #btn-mute, #btn-set-name {
+  font-family: "BBH Bogle", sans-serif;
+  font-size: 14px;
+  padding: 8px 16px;
+  background: #333;
+  color: #ffd700;
+  border: 1px solid #ffd700;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-weight: bold;
+}
+
+#btn-connect-wallet:hover, #btn-add-tokens:hover, #btn-mute:hover, #btn-set-name:hover {
+  background: #444;
+  box-shadow: 0 0 5px #ffd700;
+}
+
+#btn-mute {
+    font-size: 18px;
+    padding: 4px 10px;
+}
+
+#tokens-section {
+    margin-left: auto;
+}
+
+#tokens-display {
+    color: #ffd700;
+    text-shadow: 1px 1px 2px black;
+}
+
+#game-layout {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+}
+
+#game-view {
+  flex: 1;
+  position: relative;
+  background-color: #000;
+  overflow: hidden;
+}
+
+/* Ensure canvas fills the game-view */
+#game-view canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+#leaderboard {
+  width: 300px;
+  background-color: #1a1a1a;
+  color: white;
+  border-left: 2px solid #333;
+  padding: 20px;
+  box-sizing: border-box;
+  overflow-y: auto;
+  display: none;
+}
+
+@media (min-width: 800px) {
+  #leaderboard {
+    display: block;
+  }
+}
+
+#leaderboard h2 {
+  color: #ffd700;
+  margin-top: 0;
+  border-bottom: 1px solid #333;
+  padding-bottom: 10px;
+  text-align: center;
+}
+
+#leaderboard-header {
+  display: grid;
+  grid-template-columns: 0.8fr 2fr 1fr;
+  font-weight: bold;
+  color: #888;
+  padding: 5px 0;
+  border-bottom: 1px solid #444;
+  margin-bottom: 5px;
+  text-align: center;
+}
+
+#leaderboard-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+#leaderboard-list li {
+  display: grid;
+  grid-template-columns: 0.8fr 2fr 1fr;
+  padding: 8px 0;
+  border-bottom: 1px solid #333;
+  font-size: 14px;
+  text-align: center;
+}
+
+#hud-center {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: rgba(0, 0, 0, 0.6);
+  padding: 10px 20px;
+  border-radius: 10px;
+  text-align: center;
+  z-index: 10;
+  pointer-events: none;
+  width: 400px;
+}
+
+#info {
+  margin-top: 5px;
+  color: white;
+  font-size: 24px;
+  text-shadow: 1px 1px 2px black;
+}
+
+#btn-cash-out {
+  margin-top: 10px;
+  font-family: "BBH Bogle", sans-serif;
+  font-size: 18px;
+  padding: 8px 20px;
+  background: #28a745;
+  color: white;
+  border: 2px solid #20c997;
+  border-radius: 6px;
+  cursor: pointer;
+  text-shadow: 1px 1px 1px rgba(0,0,0,0.5);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+  transition: all 0.2s;
+  pointer-events: auto;
+}
+
+#btn-cash-out:hover {
+  background: #218838;
+  transform: scale(1.05);
+}
+
+#score {
+  color: #ffd700;
+  font-size: 32px;
+  font-weight: bold;
+  text-shadow: 1px 1px 2px black;
+}
+
+#level {
+  position: absolute;
+  top: 10px;
+  right: 20px;
+  color: #ffffff;
+  pointer-events: none;
+  font-size: 24px;
+  font-weight: bold;
+  text-shadow: 1px 1px 2px black;
+  z-index: 10;
+}
+
+/* Animation for Level Update */
+@keyframes levelGlow {
+  0% {
+    transform: scale(1);
+    color: #ffffff;
+    text-shadow: 1px 1px 2px black;
+  }
+  50% {
+    transform: scale(1.5);
+    color: #ffd700;
+    text-shadow: 0 0 10px #ffd700, 0 0 20px #ff0000;
+  }
+  100% {
+    transform: scale(1);
+    color: #ffffff;
+    text-shadow: 1px 1px 2px black;
+  }
+}
+
+.level-highlight {
+  animation: levelGlow 0.5s ease-out;
+}
+
+#main-screen {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 20;
+}
+
+#main-screen h1 {
+  color: #ffd700;
+  font-size: 64px;
+  margin-bottom: 40px;
+  text-shadow: 2px 2px 4px black;
+}
+
+#main-screen button {
+  font-family: "BBH Bogle", sans-serif;
+  font-size: 24px;
+  padding: 15px 40px;
+  width: 250px;
+  margin: 10px;
+  background: radial-gradient(#b7a90082, #363900a1);
+  color: white;
+  border: 2px solid #ffd700;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: transform 0.1s;
+}
+
+#main-screen button:hover {
+  background: radial-gradient(#b7a900aa, #363900cc);
+  transform: scale(1.05);
+}
+
+.hidden {
+  display: none !important;
+}
+
+/* Multiplier Badge */
+#multiplier-badge {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.ribbon-rotating {
+  width: 90px;
+  height: 90px;
+  background: radial-gradient(circle, #ffd700, #ff8c00);
+  border-radius: 50%;
+  border: 4px solid #fff;
+  box-shadow: 0 0 15px rgba(255, 215, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: rotateBadge 10s linear infinite;
+  position: relative;
+}
+
+.ribbon-rotating::before {
+  content: '';
+  position: absolute;
+  top: -6px;
+  left: -6px;
+  right: -6px;
+  bottom: -6px;
+  border-radius: 50%;
+  border: 2px dashed #ffeb3b;
+  animation: rotateBadgeReverse 20s linear infinite;
+}
+
+.ribbon-text {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1;
+  /* Counter-rotate text so it stays upright */
+  animation: rotateBadgeReverse 10s linear infinite;
+}
+
+.mult-val {
+  font-size: 24px;
+  font-weight: bold;
+  color: #222;
+  text-shadow: 1px 1px 0px rgba(255,255,255,0.5);
+  font-family: "BBH Bogle", sans-serif;
+}
+
+.mult-label {
+  font-size: 11px;
+  font-weight: bold;
+  color: #444;
+  margin-top: 2px;
+  letter-spacing: 1px;
+}
+
+@keyframes rotateBadge {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes rotateBadgeReverse {
+  from { transform: rotate(360deg); }
+  to { transform: rotate(0deg); }
+}
