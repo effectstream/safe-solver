@@ -12,39 +12,45 @@ import { showCustomAlert } from "./Utils";
 import { mockService } from "./MockService";
 import { state } from "./GameState";
 import { updateTokenDisplay } from "./GameLogic";
+import { EngineConfig } from "./EngineConfig";
+export let localWallet = null;
 
-export let localWallet: LocalWallet | null = null;
 
 export async function initializeLocalWallet() {
   if (localWallet) return localWallet;
-  
-  try {
-    const chain = await getChainByChainIdAsync(hardhat.id);
+
+  async function getLocalWallet() {
+    const chain = await getChainByChainIdAsync(EngineConfig.paimaL2Chain.id);
     const wallet = new LocalWallet({ chain });
     await wallet.loadOrCreate({
       strategy: "encryptedJson",
-      password: "",
+      password: "safe-solver",
     });
     await wallet.connect();
-    localWallet = wallet;
-    console.log("Local wallet initialized:", await wallet.getAddress());
+    return await wallet.getSigner();
+  }
+
+  try {
+    const loginOptions =  {
+      mode: WalletMode.EvmEthers,
+      preferBatchedMode: true,
+      connection: {
+        metadata: {
+          name: "thirdweb.localwallet",
+          displayName: "Local Wallet",
+        },
+        api: await getLocalWallet(),
+      },
+    };
+        
+    const walletLoginResult = await walletLogin(loginOptions);
+    localWallet = walletLoginResult.result;
     return localWallet;
   } catch (e) {
     console.error("Failed to initialize local wallet", e);
     return null;
   }
 }
-
-// Configuration
-export const paimaEngineConfig = new PaimaEngineConfig(
-  "",
-  "mainEvmRPC",
-  "0x5FbDB2315678afecb367f032d93F642f64180aa3",
-  hardhat as any,
-  undefined,
-  undefined,
-  false
-);
 
 let connectedWallet: any = null;
 
@@ -91,19 +97,6 @@ export async function getAvailableWallets(): Promise<WalletOption[]> {
     console.error("Failed to fetch injected wallets:", e);
   }
 
-  // 2. Add Static/Local Wallets
-  wallets.push({
-    name: "EVM [test error]",
-    mode: WalletMode.EvmInjected,
-    preference: { name: "No wallet" },
-    types: ["evm"],
-    metadata: {
-      name: "EVM Test Error",
-      displayName: "EVM [test error]",
-    },
-    checkChainId: true,
-  });
-
   return wallets;
 }
 
@@ -138,8 +131,9 @@ export async function login(walletOption: WalletOption) {
   connectedWallet = { ...result.result, mode: walletOption.mode };
 
   if (localWallet && connectedWallet.walletAddress) {
-    console.log(`Associating Local Wallet ${await localWallet.getAddress()} with Real Wallet ${connectedWallet.walletAddress}`);
+    console.log(`Associating Local Wallet ${localWallet.walletAddress} with Real Wallet ${connectedWallet.walletAddress}`);
     // Future: Add logic to cryptographically associate the wallets (e.g. sign a message)
+    await mockService.connectWallets(localWallet, connectedWallet);
   }
 
   return connectedWallet;
@@ -219,7 +213,7 @@ export function initWalletUI() {
       if (localWalletInfo) {
           const wallet = await initializeLocalWallet();
           if (wallet) {
-              const address = await wallet.getAddress();
+              const address = wallet.walletAddress;
               localWalletInfo.innerHTML = `
                   <div style="margin-top: 10px;">
                     <p style="margin:0; font-weight:bold;">Local Wallet Address:</p>

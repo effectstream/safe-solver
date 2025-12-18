@@ -106,7 +106,9 @@
     "npm:@paimaexample/grafana-loki@*": "0.3.124",
     "npm:@paimaexample/npm-midnight-indexer@*": "0.3.124",
     "npm:@paimaexample/npm-midnight-indexer@0.3.124": "0.3.124",
+    "npm:@paimaexample/npm-midnight-node@*": "0.3.124",
     "npm:@paimaexample/npm-midnight-node@0.3.124": "0.3.124",
+    "npm:@paimaexample/npm-midnight-proof-server@*": "0.3.124",
     "npm:@paimaexample/npm-midnight-proof-server@0.3.124": "0.3.124",
     "npm:@pgtyped/parser@2.4.2": "2.4.2",
     "npm:@pgtyped/runtime@2.4.2": "2.4.2",
@@ -167,6 +169,7 @@
     "npm:viem@2.37.3": "2.37.3_ws@8.18.3",
     "npm:viem@^2.21.3": "2.37.3_ws@8.18.3",
     "npm:vitest@^3.2.4": "3.2.4_vite@7.3.0__picomatch@4.0.3",
+    "npm:wait-on@*": "8.0.3",
     "npm:wait-on@8.0.3": "8.0.3",
     "npm:web3-utils@^4.3.3": "4.3.3",
     "npm:ws@8.18.1": "8.18.1"

@@ -3,10 +3,14 @@ import { contractAddressesEvmMain } from "@safe-solver/evm-contracts";
 
 // Config values mirroring ./packages/client/node/scripts/start.ts
 const paimaL2Address = contractAddressesEvmMain()["chain31337"][
-  "PaimaL2ContractModule#MyPaimaL2Contract"
+  "effectstreaml2Module#effectstreaml2"
 ] as `0x${string}`;
 
-const paimaSyncProtocolName = "parallelEvmRPC_fast";
+if (!paimaL2Address) {
+  throw new Error("EffectstreamL2 address not found");
+}
+
+const paimaSyncProtocolName = "mainEvmRPC";
 
 // In real cases use Deno.env for reading private key
 const batcherPrivateKey =

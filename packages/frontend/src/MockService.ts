@@ -1,129 +1,231 @@
-import { LeaderboardEntry } from './Leaderboard';
+import { LeaderboardEntry } from "./Leaderboard";
+import { localWallet } from "./Wallet";
+import { EngineConfig } from "./EngineConfig";
+import { sendTransaction } from "@paimaexample/wallets";
+// import { accountPayload } from "@paimaexample/concise";
+// import * as x from "@paimaexample/wallets";
+import { accountPayload } from "./_concise";
+
+setTimeout(async () => {
+    const accountPayload_ = await accountPayload.createAccount();
+    const response = await sendTransaction(
+        localWallet,
+        accountPayload_,
+        EngineConfig,
+        "wait-effectstream-processed"
+      );
+  console.log({response});
+}, 1000);
+
 
 export interface SafeResult {
-    isBad: boolean;
-    prize: number;
+  isBad: boolean;
+  prize: number;
 }
 
 class MockService {
-    private badSafeIndex: number = -1;
-    private safeCount: number = 0;
-    private currentRound: number = 1;
-    private userNames: Record<string, string> = {};
+  private badSafeIndex: number = -1;
+  private safeCount: number = 0;
+  private currentRound: number = 1;
+  private userNames: Record<string, string> = {};
+
+  // Initial mock data
+  private leaderboard: LeaderboardEntry[] = [
+    { name: "Player 1", score: 1000 },
+    { name: "Player 2", score: 900 },
+    { name: "Player 3", score: 800 },
+  ];
+
+  private async delay(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  /**
+   * Initializes the level on the "server".
+   * Determines which safe is the bad one.
+   */
+  async initLevel(safeCount: number, round: number = 1): Promise<void> {
+    const conciseData = ["initLevel", safeCount, round];
+    await sendTransaction(
+      localWallet,
+      conciseData,
+      EngineConfig,
+      "wait-effectstream-processed"
+    );
+
+    console.log(
+      `[MockServer] Request: Init Level with ${safeCount} safes, Round ${round}`
+    );
+    await this.delay(300); // Small delay for setup
+    this.safeCount = safeCount;
+    this.currentRound = round;
+    this.badSafeIndex = Math.floor(Math.random() * safeCount);
+    console.log(
+      `[MockServer] Response: Level initialized. Bad safe is index ${this.badSafeIndex}.`
+    );
+  }
+
+  public getPrize(numSafes: number, round: number): number {
+    const prizes = [0.33, 0.22, 0.16, 0.13, 0.11];
+    return prizes[numSafes - 3] * (1 + (round - 1) * 0.55);
+  }
+
+  /**
+   * Checks if the clicked safe is bad.
+   */
+  async checkSafe(safeIndex: number): Promise<SafeResult> {
+    const conciseData = ["checkSafe", safeIndex];
+    await sendTransaction(
+      localWallet,
+      conciseData,
+      EngineConfig,
+      "wait-effectstream-processed"
+    );
+
+    console.log(`[MockServer] Request: Check safe ${safeIndex}`);
+    await this.delay(600); // Simulate network latency
+
+    const isBad = safeIndex === this.badSafeIndex;
+    const prize = this.getPrize(this.safeCount, this.currentRound);
+
+    console.log(
+      `[MockServer] Response: Safe ${safeIndex} is ${
+        isBad ? "BAD" : "GOOD"
+      }. Prize: ${prize}`
+    );
+    return {
+      isBad,
+      prize,
+    };
+  }
+
+  /**
+   * Fetches the leaderboard data.
+   */
+  async getLeaderboard(): Promise<LeaderboardEntry[]> {
+    console.log(`[MockServer] Request: Get Leaderboard`);
+    await this.delay(500);
+    console.log(
+      `[MockServer] Response: Sending ${this.leaderboard.length} leaderboard entries`
+    );
+    return [...this.leaderboard];
+  }
+
+  /**
+   * Submits a new score and returns the updated leaderboard.
+   */
+  async submitScore(name: string, score: number): Promise<LeaderboardEntry[]> {
+    const conciseData = ["submitScore", name, score];
+    await sendTransaction(
+      localWallet,
+      conciseData,
+      EngineConfig,
+      "wait-effectstream-processed"
+    );
+
+    console.log(`[MockServer] Request: Submit Score (${name}: ${score})`);
+    await this.delay(800);
+
+    this.leaderboard.push({ name, score });
+    this.leaderboard.sort((a, b) => b.score - a.score);
+    if (this.leaderboard.length > 10) {
+      this.leaderboard = this.leaderboard.slice(0, 10);
+    }
+
+    console.log(
+      `[MockServer] Response: Score submitted. New leaderboard size: ${this.leaderboard.length}`
+    );
+    return [...this.leaderboard];
+  }
+
+  /**
+   * Adds tokens to the user's wallet.
+   */
+  async addTokens(amount: number): Promise<boolean> {
+    const conciseData = ["addTokens", amount];
+    await sendTransaction(
+      localWallet,
+      conciseData,
+      EngineConfig,
+      "wait-effectstream-processed"
+    );
+
+    console.log(`[MockServer] Request: Add ${amount} tokens`);
+    await this.delay(400); // Simulate network latency
+    console.log(`[MockServer] Response: Added ${amount} tokens`);
+    return true;
+  }
+
+  /**
+   * Fetches the user profile (balance, etc.) given a wallet address.
+   */
+  async getUserProfile(
+    walletAddress: string
+  ): Promise<{ balance: number; lastLogin: number; name?: string }> {
+    console.log(`[MockServer] Request: Get User Profile for ${walletAddress}`);
+    await this.delay(700);
+
+    // Mock data: generating a random balance for variety, or static
+    const balance = Math.floor(Math.random() * 100);
+    const name = this.userNames[walletAddress];
+
+    console.log(
+      `[MockServer] Response: User ${walletAddress} has ${balance} tokens. Name: ${
+        name || "N/A"
+      }`
+    );
+    return {
+      balance,
+      lastLogin: Date.now(),
+      name,
+    };
+  }
+
+  /**
+   * Associates a local wallet with a real wallet.
+   */
+  async connectWallets(
+    localWallet: { walletAddress: string, provider: { signMessage: (message: string) => Promise<string> } },
+    realWallet: { walletAddress: string, provider: { signMessage: (message: string) => Promise<string> } },
+  ): Promise<boolean> {
+
+    // const conciseData = await accountPayload.linkAddress(
+    //   localWallet,
+    //   realWallet,
+
+    //   localWalletAddress,
+    //   realWalletAddress,
+    //   localWalletAddress,
+    //   realWalletAddress,
+    // );
     
-    // Initial mock data
-    private leaderboard: LeaderboardEntry[] = [
-        { name: 'Player 1', score: 1000 },
-        { name: 'Player 2', score: 900 },
-        { name: 'Player 3', score: 800 },
-    ];
+    const conciseData = ["connectWallets", localWallet.walletAddress, realWallet.walletAddress];
+    return conciseData;
+  }
 
-    private async delay(ms: number): Promise<void> {
-        return new Promise(resolve => setTimeout(resolve, ms));
-    }
+  /**
+   * Sets the user name for a given wallet address.
+   */
+  async setUserName(walletAddress: string, name: string): Promise<boolean> {
+    const signedMessage = await localWallet.provider.signMessage("Test");
 
-    /**
-     * Initializes the level on the "server".
-     * Determines which safe is the bad one.
-     */
-    async initLevel(safeCount: number, round: number = 1): Promise<void> {
-        console.log(`[MockServer] Request: Init Level with ${safeCount} safes, Round ${round}`);
-        await this.delay(300); // Small delay for setup
-        this.safeCount = safeCount;
-        this.currentRound = round;
-        this.badSafeIndex = Math.floor(Math.random() * safeCount);
-        console.log(`[MockServer] Response: Level initialized. Bad safe is index ${this.badSafeIndex}.`);
-    }
+    const conciseData = ["setName", name];
+    const response = await sendTransaction(
+      localWallet,
+      conciseData,
+      EngineConfig,
+      // TODO: rename to wait-effectstream-processed
+      "wait-effectstream-processed"
+    );
 
-    public getPrize(numSafes: number, round: number): number {
-        const prizes = [0.33, 0.22, 0.16, 0.13, 0.11];
-        return prizes[numSafes - 3] * (1 + (round - 1) * 0.55);
-    }
-
-    /**
-     * Checks if the clicked safe is bad.
-     */
-    async checkSafe(safeIndex: number): Promise<SafeResult> {
-        console.log(`[MockServer] Request: Check safe ${safeIndex}`);
-        await this.delay(600); // Simulate network latency
-
-        const isBad = safeIndex === this.badSafeIndex;   
-        const prize = this.getPrize(this.safeCount, this.currentRound);
-
-        console.log(`[MockServer] Response: Safe ${safeIndex} is ${isBad ? 'BAD' : 'GOOD'}. Prize: ${prize}`);
-        return {
-            isBad,
-            prize
-        };
-    }
-
-    /**
-     * Fetches the leaderboard data.
-     */
-    async getLeaderboard(): Promise<LeaderboardEntry[]> {
-        console.log(`[MockServer] Request: Get Leaderboard`);
-        await this.delay(500);
-        console.log(`[MockServer] Response: Sending ${this.leaderboard.length} leaderboard entries`);
-        return [...this.leaderboard];
-    }
-
-    /**
-     * Submits a new score and returns the updated leaderboard.
-     */
-    async submitScore(name: string, score: number): Promise<LeaderboardEntry[]> {
-        console.log(`[MockServer] Request: Submit Score (${name}: ${score})`);
-        await this.delay(800);
-
-        this.leaderboard.push({ name, score });
-        this.leaderboard.sort((a, b) => b.score - a.score);
-        if (this.leaderboard.length > 10) {
-            this.leaderboard = this.leaderboard.slice(0, 10);
-        }
-
-        console.log(`[MockServer] Response: Score submitted. New leaderboard size: ${this.leaderboard.length}`);
-        return [...this.leaderboard];
-    }
-
-    /**
-     * Adds tokens to the user's wallet.
-     */
-    async addTokens(amount: number): Promise<boolean> {
-        console.log(`[MockServer] Request: Add ${amount} tokens`);
-        await this.delay(400); // Simulate network latency
-        console.log(`[MockServer] Response: Added ${amount} tokens`);
-        return true;
-    }
-
-    /**
-     * Fetches the user profile (balance, etc.) given a wallet address.
-     */
-    async getUserProfile(walletAddress: string): Promise<{ balance: number; lastLogin: number; name?: string }> {
-        console.log(`[MockServer] Request: Get User Profile for ${walletAddress}`);
-        await this.delay(700);
-        
-        // Mock data: generating a random balance for variety, or static
-        const balance = Math.floor(Math.random() * 100); 
-        const name = this.userNames[walletAddress];
-        
-        console.log(`[MockServer] Response: User ${walletAddress} has ${balance} tokens. Name: ${name || 'N/A'}`);
-        return {
-            balance,
-            lastLogin: Date.now(),
-            name
-        };
-    }
-
-    /**
-     * Sets the user name for a given wallet address.
-     */
-    async setUserName(walletAddress: string, name: string): Promise<boolean> {
-        console.log(`[MockServer] Request: Set Name for ${walletAddress} to ${name}`);
-        await this.delay(500);
-        this.userNames[walletAddress] = name;
-        console.log(`[MockServer] Response: Name set.`);
-        return true;
-    }
+    console.log(
+      `[MockServer] Request: Set Name for ${walletAddress} to ${name}`
+    );
+    await this.delay(500);
+    this.userNames[walletAddress] = name;
+    console.log(`[MockServer] Response: Name set.`);
+    return true;
+  }
 }
 
 export const mockService = new MockService();
-

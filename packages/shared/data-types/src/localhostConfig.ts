@@ -24,7 +24,7 @@ const dbConn = getConnection();
 try {
   // TODO Update to effectstream.sync_protocol_pagination
   const result = await dbConn.query(`
-    SELECT * FROM paima.sync_protocol_pagination 
+    SELECT * FROM effectstream.sync_protocol_pagination 
     WHERE protocol_name = '${mainSyncProtocolName}' 
     ORDER BY page_number ASC
     LIMIT 1
@@ -32,17 +32,15 @@ try {
   if (!result || !result.rows.length) {
     throw new Error("DB is empty");
   }
-  launchStartTime = result.rows[0].page.root -
-    (result.rows[0].page_number * 1000);
+  launchStartTime =
+    result.rows[0].page.root - result.rows[0].page_number * 1000;
 } catch {
   // This is not an error.
   // Do nothing, the DB has not been initialized yet.
 }
 
 export const localhostConfig = new ConfigBuilder()
-  .setNamespace(
-    (builder) => builder.setSecurityNamespace("[scope]"),
-  )
+  .setNamespace((builder) => builder.setSecurityNamespace("[scope]"))
   .buildNetworks((builder) =>
     builder
       .addNetwork({
@@ -68,19 +66,18 @@ export const localhostConfig = new ConfigBuilder()
         networkId: 0,
         nodeUrl: "http://127.0.0.1:9944",
       })
-
   )
   .buildDeployments((builder) =>
-    builder
-      .addDeployment(
-        (networks) => networks.evmMain,
-        (_network) => ({
-          name: "Erc721DevModule#Erc721Dev",
-          address: contractAddressesEvmMain()
-            .chain31337["Erc721DevModule#Erc721Dev"],
-        }),
-      )
-  ).buildSyncProtocols((builder) =>
+    builder.addDeployment(
+      (networks) => networks.evmMain,
+      (_network) => ({
+        name: "Erc721DevModule#Erc721Dev",
+        address:
+          contractAddressesEvmMain().chain31337["Erc721DevModule#Erc721Dev"],
+      })
+    )
+  )
+  .buildSyncProtocols((builder) =>
     builder
       .addMain(
         (networks) => networks.ntp,
@@ -90,16 +87,19 @@ export const localhostConfig = new ConfigBuilder()
           chainUri: "",
           startBlockHeight: 1,
           pollingInterval: 1000,
-        }),
+        })
       )
-      .addParallel((networks) => networks.evmMain, (network, deployments) => ({
-        name: "mainEvmRPC",
-        type: ConfigSyncProtocolType.EVM_RPC_PARALLEL,
-        chainUri: network.rpcUrls.default.http[0],
-        startBlockHeight: 1,
-        pollingInterval: 500,
-        confirmationDepth: 1,
-      }))
+      .addParallel(
+        (networks) => networks.evmMain,
+        (network, deployments) => ({
+          name: "mainEvmRPC",
+          type: ConfigSyncProtocolType.EVM_RPC_PARALLEL,
+          chainUri: network.rpcUrls.default.http[0],
+          startBlockHeight: 1,
+          pollingInterval: 500,
+          confirmationDepth: 1,
+        })
+      )
       .addParallel(
         (networks) => networks.midnight,
         (network, deployments) => ({
@@ -109,44 +109,38 @@ export const localhostConfig = new ConfigBuilder()
           pollingInterval: 1000,
           indexer: "http://127.0.0.1:8088/api/v1/graphql",
           indexerWs: "ws://127.0.0.1:8088/api/v1/graphql/ws",
-        }),
+        })
       )
   )
   .buildPrimitives((builder) =>
     builder
-      
-          .addPrimitive(
-            (syncProtocols) => syncProtocols.mainEvmRPC,
-            (network, deployments, syncProtocol) => ({
-                name: "primitive_effectstreaml2",
-                type: builtin.PrimitiveTypeEVMPaimaL2,
-                startBlockHeight: 0,
-                contractAddress: contractAddressesEvmMain()
-                    .chain31337["effectstreaml2Module#effectstreaml2"],
-                stateMachinePrefix: `event_evm_effectstreaml2`,
-            })
-          )
-    
-      
-      
-        .addPrimitive(
-          (syncProtocols) => syncProtocols.parallelMidnight,
-          (network, deployments, syncProtocol) => ({
-            name: "primitive_unshielded-erc20",
-            type: builtin.PrimitiveTypeMidnightGeneric,
-            startBlockHeight: 1,
-            contractAddress: readMidnightContract("unshielded-erc20", "contract-unshielded-erc20.json").contractAddress,
-            stateMachinePrefix: "event_midnight_unshielded-erc20",
-            contract: { ledger: unshielded_erc20Contract.ledger },
-            networkId: 0,
-          })
-        )
-      
-
-      
-
-      
-
-      
+      .addPrimitive(
+        (syncProtocols) => syncProtocols.mainEvmRPC,
+        (network, deployments, syncProtocol) => ({
+          name: "primitive_effectstreaml2",
+          type: builtin.PrimitiveTypeEVMPaimaL2,
+          startBlockHeight: 0,
+          contractAddress:
+            contractAddressesEvmMain().chain31337[
+              "effectstreaml2Module#effectstreaml2"
+            ],
+          stateMachinePrefix: `event_evm_effectstreaml2`,
+        })
+      )
+      .addPrimitive(
+        (syncProtocols) => syncProtocols.parallelMidnight,
+        (network, deployments, syncProtocol) => ({
+          name: "primitive_unshielded-erc20",
+          type: builtin.PrimitiveTypeMidnightGeneric,
+          startBlockHeight: 1,
+          contractAddress: readMidnightContract(
+            "unshielded-erc20",
+            "contract-unshielded-erc20.json"
+          ).contractAddress,
+          stateMachinePrefix: "event_midnight_unshielded-erc20",
+          contract: { ledger: unshielded_erc20Contract.ledger },
+          networkId: 0,
+        })
+      )
   )
   .build();
