@@ -52,6 +52,65 @@ export async function initializeLocalWallet() {
   }
 }
 
+export async function updateSetNameButtonLabel() {
+    const btnSetName = document.getElementById('btn-set-name');
+    if (!btnSetName) return;
+    
+    btnSetName.style.display = 'inline-block';
+
+    let wallet = getConnectedWallet();
+    let local = localWallet;
+    if (!local) {
+        local = await initializeLocalWallet();
+    }
+
+    // Determine the effective address (Account Primary Address if available)
+    let effectiveAddress: string | null = null;
+    const currentAddress = (wallet && wallet.walletAddress) || (local && local.walletAddress);
+
+    if (currentAddress) {
+        try {
+            const info = await mockService.getAddressInfo(currentAddress);
+            if (info && info.account_id !== null) {
+                const accountInfo = await mockService.getAccountInfo(info.account_id);
+                if (accountInfo && accountInfo.primary_address) {
+                    effectiveAddress = accountInfo.primary_address;
+                }
+            }
+        } catch (e) {
+            console.error("Error determining primary address", e);
+        }
+        
+        // Fallback to current address if not part of account or check failed
+        if (!effectiveAddress) {
+            effectiveAddress = currentAddress;
+        }
+    }
+
+    if (!effectiveAddress) {
+        btnSetName.textContent = "SET NAME";
+        return;
+    }
+
+    // 1. Get User Account Name (using effective address)
+    let nameFound = false;
+    try {
+        const profile = await mockService.getUserProfile(effectiveAddress);
+        if (profile && profile.name) {
+            btnSetName.textContent = profile.name;
+            nameFound = true;
+        }
+    } catch (e) {
+        // ignore
+    }
+
+    if (nameFound) return;
+
+    // 2. Use Effective Address (truncated)
+    const addr = effectiveAddress;
+    btnSetName.textContent = addr.substring(0, 6) + '...' + addr.substring(addr.length - 4);
+}
+
 let connectedWallet: any = null;
 
 interface WalletOption {
@@ -132,7 +191,6 @@ export async function login(walletOption: WalletOption) {
 
   if (localWallet && connectedWallet.walletAddress) {
     console.log(`Associating Local Wallet ${localWallet.walletAddress} with Real Wallet ${connectedWallet.walletAddress}`);
-    // Future: Add logic to cryptographically associate the wallets (e.g. sign a message)
     await mockService.connectWallets(localWallet, connectedWallet);
   }
 
@@ -176,8 +234,49 @@ export function initWalletUI() {
     try {
       const wallets = await getAvailableWallets();
       loadingWallets.style.display = 'none';
+
+      // Check local wallet account status
+      let localWalletHasAccount = false;
+      let localWalletAddress = null;
+      let associatedAddressesCount = 0;
+      try {
+        const wallet = await initializeLocalWallet();
+        if (wallet) {
+          localWalletAddress = wallet.walletAddress;
+          const addressInfo = await mockService.getAddressInfo(localWalletAddress);
+          if (addressInfo && addressInfo.account_id !== null) {
+            localWalletHasAccount = true;
+            const addresses = await mockService.getAccountAddresses(addressInfo.account_id);
+            associatedAddressesCount = addresses ? addresses.length : 0;
+          }
+        }
+      } catch (e) {
+        console.error("Failed to check local wallet status", e);
+      }
+
+      // Check if already connected or local wallet has account
+      const connectedWallet = getConnectedWallet();
       
-      if (wallets && wallets.length > 0) {
+      const isLinkedToRealWallet = localWalletHasAccount && associatedAddressesCount >= 2;
+
+      if (connectedWallet || isLinkedToRealWallet) {
+         const displayAddress = connectedWallet?.walletAddress || localWalletAddress;
+         const title = connectedWallet ? "Wallet Connected" : "Local Account Active";
+         const color = connectedWallet ? "#006600" : "#003366";
+
+         walletList.innerHTML = `
+          <li>
+            <div style="padding: 10px; text-align: center;">
+              <p style="margin: 0; font-weight: bold; color: ${color};">${title}</p>
+              <p style="margin: 5px 0 0; font-size: 0.8em; color: #666;">
+                ${displayAddress ? 
+                  displayAddress.substring(0, 6) + '...' + displayAddress.substring(displayAddress.length - 4) : 
+                  'Unknown Address'}
+              </p>
+            </div>
+          </li>
+         `;
+      } else if (wallets && wallets.length > 0) {
         wallets.forEach(wallet => {
           const li = document.createElement('li');
           const btn = document.createElement('button');
@@ -209,18 +308,73 @@ export function initWalletUI() {
         walletList.innerHTML = '<li>No wallets found.</li>';
       }
 
+
       const localWalletInfo = document.getElementById('local-wallet-info');
       if (localWalletInfo) {
           const wallet = await initializeLocalWallet();
           if (wallet) {
               const address = wallet.walletAddress;
+              const addressInfo = await mockService.getAddressInfo(address);
+
+              let accountHtml = '<p style="margin:5px 0; font-size:0.8em; color:#666;">Not associated with an account yet.</p>';
+
+              if (addressInfo && addressInfo.account_id !== null) {
+                  const accountId = addressInfo.account_id;
+                  const addresses = await mockService.getAccountAddresses(accountId);
+                  const accountInfo = await mockService.getAccountInfo(accountId);
+                  const primaryAddr = accountInfo ? accountInfo.primary_address : null;
+
+                  // Sort: Primary first
+                  if (primaryAddr) {
+                      addresses.sort((a, b) => {
+                          if (a.address === primaryAddr) return -1;
+                          if (b.address === primaryAddr) return 1;
+                          return 0;
+                      });
+                  }
+                  
+                  let addressesHtml = '';
+                  if (addresses && addresses.length > 0) {
+                      addressesHtml = `
+                        <div style="margin-top:5px; padding:5px; background:#e6ffe6; border-radius:3px;">
+                          <p style="margin:0 0 5px; font-weight:bold; font-size:0.8em;">Linked Addresses:</p>
+                          <ul style="margin:0; padding-left:15px; font-size:0.75em; font-family:monospace;">
+                            ${addresses.map(a => {
+                                const isMain = a.address === primaryAddr;
+                                const shortAddr = a.address.substring(0, 6) + '...' + a.address.substring(a.address.length - 4);
+                                return `<li>${shortAddr}${isMain ? ' (Main Wallet)' : ''}</li>`;
+                            }).join('')}
+                          </ul>
+                        </div>
+                      `;
+                  }
+
+                  accountHtml = `
+                    <p style="margin:5px 0; font-size:0.8em; color:#006600;">Account ID: ${accountId}</p>
+                    ${addressesHtml}
+                  `;
+              }
+
               localWalletInfo.innerHTML = `
                   <div style="margin-top: 10px;">
                     <p style="margin:0; font-weight:bold;">Local Wallet Address:</p>
                     <p style="margin:5px 0; font-family:monospace; font-size:0.85em; background: #f0f0f0; padding: 5px; border-radius: 4px;">${address}</p>
-                    <p style="margin:0; font-size:0.8em; color:#666;">This is an auto-generated local wallet unique to your browser session.</p>
+                    <p style="margin:5px 0 0; font-size:0.8em; color:#666;">This is an auto-generated local wallet unique to your browser session.</p>
+
+                    ${accountHtml}
+                    <button id="btn-delete-local-data" style="margin-top: 5px; padding: 5px 10px; background: #cc0000; color: white; border: none; border-radius: 3px; cursor: pointer; font-size: 0.8em;">Delete Local Data</button>
                   </div>
               `;
+
+              const deleteBtn = document.getElementById('btn-delete-local-data');
+              if (deleteBtn) {
+                  deleteBtn.onclick = () => {
+                      if (confirm("Are you sure you want to delete your local wallet data? This cannot be undone.")) {
+                          localStorage.clear();
+                          location.reload();
+                      }
+                  };
+              }
           }
       }
     } catch (e: any) {
@@ -246,16 +400,8 @@ export function initWalletUI() {
         state.tokens = profile.balance;
         updateTokenDisplay();
 
-        // Show Set Name button
-        const btnSetName = document.getElementById('btn-set-name');
-        if (btnSetName) {
-            btnSetName.style.display = 'inline-block';
-            if (profile.name) {
-                btnSetName.textContent = profile.name;
-            } else {
-                btnSetName.textContent = 'SET NAME';
-            }
-        }
+        // Update Set Name button using shared logic
+        await updateSetNameButtonLabel();
       }
 
       connectWalletBtn.textContent = 'Connected: ' + (wallet.walletAddress ? wallet.walletAddress.substring(0, 6) + '...' + wallet.walletAddress.substring(wallet.walletAddress.length - 4) : 'Unknown');
@@ -269,4 +415,3 @@ export function initWalletUI() {
     }
   }
 }
-

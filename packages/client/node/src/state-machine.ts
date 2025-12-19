@@ -4,12 +4,16 @@ import type { BaseStfInput } from "@paimaexample/sm";
 import type { StartConfigGameStateTransitions } from "@paimaexample/runtime";
 import { type SyncStateUpdateStream, World } from "@paimaexample/coroutine";
 import {
-  createUser,
+  ensureAccountBalance,
   upsertGameState,
   getGameState,
-  updateUserBalance,
-  submitScore,
-  setUserName,
+  updateAccountBalance,
+  updateCurrentScore,
+  setAccountName,
+  getAddressByAddress,
+  incrementGamesLost,
+  incrementGamesWon,
+  advanceGameRound
 } from "@safe-solver/database";
 
 const stm = new PaimaSTM<typeof grammar, any>(grammar);
@@ -32,28 +36,46 @@ const decodeToByteString = (x: { [key: string]: number }): string =>
 stm.addStateTransition("setName", function* (data) {
   const { name } = data.parsedInput;
   const user = data.signerAddress || "";
-  console.log(`🎉 [setName] ${user} -> ${name}`);
-  yield* World.resolve(setUserName, { wallet_address: user, username: name });
+  
+  const [addrInfo] = yield* World.resolve(getAddressByAddress, { address: user });
+  if (!addrInfo || !addrInfo.account_id) {
+    console.log(`[setName] No account for ${user}`);
+    return;
+  }
+  const accountId = addrInfo.account_id;
+
+  console.log(`🎉 [setName] Account ${accountId} -> ${name}`);
+  yield* World.resolve(setAccountName, { account_id: accountId, name });
 });
 
 stm.addStateTransition("initLevel", function* (data) {
   const { safeCount, round } = data.parsedInput;
   const user = data.signerAddress || "";
 
-  // Ensure user exists
-  yield* World.resolve(createUser, { wallet_address: user, username: null });
+  const [addrInfo] = yield* World.resolve(getAddressByAddress, { address: user });
+  if (!addrInfo || !addrInfo.account_id) {
+    console.log(`[initLevel] No account for ${user}`);
+    return;
+  }
+  const accountId = addrInfo.account_id;
 
-  // Pseudo-random bad safe
-  const seed = data.blockHeight + round + user.charCodeAt(0);
-  const badSafeIndex = seed % safeCount;
+  // Ensure user balance record exists
+  yield* World.resolve(ensureAccountBalance, { account_id: accountId });
 
-  console.log(`🎉 [initLevel] User: ${user}, Round: ${round}, BadSafe: ${badSafeIndex}`);
+
+  // Generate random hash using provided generator
+  // Assuming Prando-like interface
+  const randomHash = Math.floor(data.randomGenerator.next(0, 2147483647)).toString(16) + 
+                     Math.floor(data.randomGenerator.next(0, 2147483647)).toString(16);
+
+  console.log(`🎉 [initLevel] Account: ${accountId}, Round: ${round}, SafeCount: ${safeCount}, Hash: ${randomHash}`);
 
   yield* World.resolve(upsertGameState, {
-    wallet_address: user,
+    account_id: accountId,
     round,
     safe_count: safeCount,
-    bad_safe_index: badSafeIndex,
+    random_hash: randomHash,
+    is_ongoing: true
   });
 });
 
@@ -61,29 +83,47 @@ stm.addStateTransition("checkSafe", function* (data) {
   const { safeIndex } = data.parsedInput;
   const user = data.signerAddress || "";
 
-  const results = yield* World.resolve(getGameState, { wallet_address: user });
+  const [addrInfo] = yield* World.resolve(getAddressByAddress, { address: user });
+  if (!addrInfo || !addrInfo.account_id) {
+    console.log(`[checkSafe] No account for ${user}`);
+    return;
+  }
+  const accountId = addrInfo.account_id;
+
+  const results = yield* World.resolve(getGameState, { account_id: accountId });
   const gameState = (results as any)[0];
   
-  if (!gameState) {
-    console.log(`[checkSafe] No game state for ${user}`);
+  if (!gameState || !gameState.is_ongoing) {
+    console.log(`[checkSafe] Game not ongoing for Account ${accountId}`);
     return;
   }
 
-  // Handle potentially null database values
-  const min = 0;
-  const max = 3
-  const badSafeIndex = data.randomGenerator.next(min, max);
-
+  // Use random generator to determine bad safe
   const safeCount = gameState.safe_count ?? 3;
+  // next(min, max) is [min, max). We want integer index from 0 to safeCount-1.
+  const badSafeIndex = Math.floor(data.randomGenerator.next(0, safeCount));
+
   const round = gameState.round ?? 1;
 
   const isBad = safeIndex === badSafeIndex;
   const prize = isBad ? 0 : calculatePrize(safeCount, round);
 
-  console.log(`🎉 [checkSafe] User: ${user}, Index: ${safeIndex}, IsBad: ${isBad}, Prize: ${prize}`);
+  console.log(`🎉 [checkSafe] Account: ${accountId}, Index: ${safeIndex}, IsBad: ${isBad}, Prize: ${prize}`);
 
-  if (!isBad) {
-    yield* World.resolve(updateUserBalance, { wallet_address: user, amount: prize });
+  if (isBad) {
+    // Game Over
+    yield* World.resolve(incrementGamesLost, { account_id: accountId });
+  } else {
+    // Win safe, advance round
+    yield* World.resolve(updateCurrentScore, { account_id: accountId, amount: prize });
+    
+    // Determine next level parameters. We want 3 to 7 safes.
+    // next(3, 8) -> [3, 8) -> floor -> 3, 4, 5, 6, 7
+    const nextSafeCount = Math.floor(data.randomGenerator.next(3, 8));
+    yield* World.resolve(advanceGameRound, { 
+        account_id: accountId, 
+        safe_count: nextSafeCount 
+    });
   }
 });
 
@@ -91,62 +131,40 @@ stm.addStateTransition("submitScore", function* (data) {
   const { name, score } = data.parsedInput;
   const user = data.signerAddress || "";
   
-  console.log(`🎉 [submitScore] User: ${user}, Name: ${name}, Score: ${score}`);
+  const [addrInfo] = yield* World.resolve(getAddressByAddress, { address: user });
+  if (!addrInfo || !addrInfo.account_id) {
+    console.log(`[submitScore] No account for ${user}`);
+    return;
+  }
+  const accountId = addrInfo.account_id;
   
-  yield* World.resolve(submitScore, { 
-    wallet_address: user, 
-    username: name, 
-    score 
-  });
+  // Get current game score to add to global
+  const results = yield* World.resolve(getGameState, { account_id: accountId });
+  const gameState = (results as any)[0];
+  const currentScore = gameState?.current_score ?? 0;
+
+  console.log(`🎉 [submitScore] Account: ${accountId}, Name: ${name}, Adding Score: ${currentScore}`);
+  
+  if (currentScore > 0) {
+      yield* World.resolve(updateAccountBalance, { account_id: accountId, amount: currentScore });
+  }
+  
+  // Update name if provided
+  if (name) {
+      yield* World.resolve(setAccountName, { account_id: accountId, name });
+  }
+
+  // Mark game as won/finished
+  yield* World.resolve(incrementGamesWon, { account_id: accountId });
 });
 
-stm.addStateTransition("addTokens", function* (data) {
-  const { amount } = data.parsedInput;
-  const user = data.signerAddress || "";
-
-  console.log(`🎉 [addTokens] User: ${user}, Amount: ${amount}`);
-  
-  yield* World.resolve(createUser, { wallet_address: user, username: null });
-  yield* World.resolve(updateUserBalance, { wallet_address: user, amount });
+stm.addStateTransition("event_midnight_unshielded_erc20", function* (data) {
+  const { payload } = data.parsedInput;
+  console.log(`🎉 [MIDNIGHT] Payload:`, payload);
 });
 
-stm.addStateTransition("connectWallets", function* (data) {
-  const { localWalletAddress, realWalletAddress } = data.parsedInput;
-  console.log(`🎉 [connectWallets] ${localWalletAddress} <-> ${realWalletAddress}`);
-  
-  yield* World.resolve(createUser, { wallet_address: localWalletAddress, username: null });
-  yield* World.resolve(createUser, { wallet_address: realWalletAddress, username: null });
-});
 
-// stm.addStateTransition("event_midnight_unshielded-erc20", function* (data) {
-//   console.log(
-//     "🎉 [MIDNIGHT:unshielded-erc20] Transaction receipt:",
-//     JSON.stringify(data.parsedInput.payload)
-//   );
-//   yield* World.resolve(insertData, {
-//     chain: "midnight",
-//     action: "unshielded-erc20",
-//     data: JSON.stringify(data.parsedInput.payload),
-//     block_height: data.blockHeight,
-//   });
-// });
-
-// stm.addStateTransition("state_effectstreaml2", function* (data) {
-//   console.log(
-//     "🎉 [EVM:effectstreaml2] Transaction receipt:",
-//     JSON.stringify(data.parsedInput)
-//   );
-
-//   yield* World.resolve(insertData, {
-//     chain: "evm",
-//     action: "effectstreaml2",
-//     data: JSON.stringify(data.parsedInput),
-//     block_height: data.blockHeight,
-//   });
-// });
-
-// stm.finalize(); // this avoids people dynamically calling stm.addStateTransition after initialization
-
+// ... rest of file (gameStateTransitions)
 /**
  * This function allows you to route between different State Transition Functions
  * based on block height. In other words when a new update is pushed for your game

@@ -1,13 +1,11 @@
-import './style.css';
-import './wallet.css';
 import TWEEN from '@tweenjs/tween.js';
 import { scene, camera, renderer, initScene, backgroundTexture } from './Scene';
 import { showMainScreen, startGame, cashOut, updateTokenDisplay } from './GameLogic';
 import { initInput } from './Input';
 import { fixBackgroundSize, setupAlertModal, showCustomAlert } from './Utils';
 import { Drill } from './Drill';
-import { state, addTokens } from './GameState';
-import { initWalletUI, getConnectedWallet, initializeLocalWallet } from './Wallet';
+import { state } from './GameState';
+import { initWalletUI, getConnectedWallet, initializeLocalWallet, updateSetNameButtonLabel } from './Wallet';
 import { soundManager } from './SoundManager';
 import { mockService } from './MockService';
 import { particleManager } from './ParticleManager';
@@ -22,55 +20,24 @@ initInput();
 particleManager.init();
 
 // Initialize Local Wallet (Auto-create)
-initializeLocalWallet();
+initializeLocalWallet().then(async (wallet) => {
+    if (wallet && wallet.walletAddress) {
+        // Fetch profile for local wallet on startup
+        try {
+            const profile = await mockService.getUserProfile(wallet.walletAddress);
+            // Tokens not used anymore for starting game
+            updateTokenDisplay();
+
+            await updateSetNameButtonLabel();
+        } catch (e) {
+            console.error("Failed to fetch initial profile", e);
+        }
+    }
+});
 
 // Initialize Wallet UI
 initWalletUI();
 setupAlertModal();
-
-// Initialize Token UI
-const btnAddTokens = document.getElementById('btn-add-tokens');
-const addTokensModal = document.getElementById('add-tokens-modal');
-const closeAddTokensModal = document.getElementById('close-add-tokens-modal');
-const btnConfirmAddTokens = document.getElementById('btn-confirm-add-tokens');
-const btnCancelAddTokens = document.getElementById('btn-cancel-add-tokens');
-
-if (btnAddTokens && addTokensModal) {
-    btnAddTokens.addEventListener('click', () => {
-        addTokensModal.style.display = 'block';
-    });
-}
-
-if (closeAddTokensModal && addTokensModal) {
-    closeAddTokensModal.addEventListener('click', () => {
-        addTokensModal.style.display = 'none';
-    });
-}
-
-if (btnCancelAddTokens && addTokensModal) {
-    btnCancelAddTokens.addEventListener('click', () => {
-        addTokensModal.style.display = 'none';
-    });
-}
-
-if (btnConfirmAddTokens && addTokensModal) {
-    btnConfirmAddTokens.addEventListener('click', async () => {
-        // Change button text to indicate loading
-        const originalText = btnConfirmAddTokens.innerText;
-        btnConfirmAddTokens.innerText = "Adding...";
-        
-        try {
-            await mockService.addTokens(10);
-            addTokens(10);
-            updateTokenDisplay();
-            addTokensModal.style.display = 'none';
-        } catch (e) {
-            console.error("Failed to add tokens", e);
-        } finally {
-            btnConfirmAddTokens.innerText = originalText;
-        }
-    });
-}
 
 // Mute Button
 const btnMute = document.getElementById('btn-mute');
@@ -92,7 +59,11 @@ const inputPlayerName = document.getElementById('input-player-name') as HTMLInpu
 if (btnSetName && setNameModal) {
     btnSetName.addEventListener('click', async () => {
         setNameModal.style.display = 'block';
-        const wallet = getConnectedWallet();
+        let wallet = getConnectedWallet();
+        if (!wallet) {
+            wallet = await initializeLocalWallet();
+        }
+
         if (wallet && wallet.walletAddress) {
              try {
                 const profile = await mockService.getUserProfile(wallet.walletAddress);
@@ -124,7 +95,11 @@ if (btnConfirmSetName && setNameModal && inputPlayerName) {
             return;
         }
 
-        const wallet = getConnectedWallet();
+        let wallet = getConnectedWallet();
+        if (!wallet) {
+             wallet = await initializeLocalWallet();
+        }
+        
         if (!wallet || !wallet.walletAddress) {
             showCustomAlert("Wallet not connected.");
             return;
@@ -148,12 +123,37 @@ if (btnConfirmSetName && setNameModal && inputPlayerName) {
     });
 }
 
+// How to Play Logic
+const btnHowToPlay = document.getElementById('btn-how-to-play');
+const howToPlayModal = document.getElementById('how-to-play-modal');
+const closeHowToPlayModal = document.getElementById('close-how-to-play-modal');
+const btnHowToPlayOk = document.getElementById('btn-how-to-play-ok');
+
+if (btnHowToPlay && howToPlayModal) {
+    btnHowToPlay.addEventListener('click', () => {
+        howToPlayModal.style.display = 'block';
+    });
+}
+
+if (closeHowToPlayModal && howToPlayModal) {
+    closeHowToPlayModal.addEventListener('click', () => {
+        howToPlayModal.style.display = 'none';
+    });
+}
+
+if (btnHowToPlayOk && howToPlayModal) {
+    btnHowToPlayOk.addEventListener('click', () => {
+        howToPlayModal.style.display = 'none';
+    });
+}
+
+
 window.addEventListener('click', (event) => {
-    if (event.target == addTokensModal && addTokensModal) {
-        addTokensModal.style.display = 'none';
-    }
     if (event.target == setNameModal && setNameModal) {
         setNameModal.style.display = 'none';
+    }
+    if (event.target == howToPlayModal && howToPlayModal) {
+        howToPlayModal.style.display = 'none';
     }
 });
 
@@ -166,9 +166,11 @@ document.getElementById('btn-start')?.addEventListener('click', () => {
     startGame(false);
 });
 
-document.getElementById('btn-demo')?.addEventListener('click', () => {
-    startGame(true);
-});
+// Remove Play Demo button
+const btnDemo = document.getElementById('btn-demo');
+if (btnDemo) {
+    btnDemo.style.display = 'none';
+}
 
 document.getElementById('btn-cash-out')?.addEventListener('click', () => {
     cashOut();

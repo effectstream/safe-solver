@@ -27,5 +27,5 @@ export const effectstreamL2Grammar = {
 export const grammar = {
   ...effectstreamL2Grammar,
 
-  "event_midnight_unshielded-erc20": builtinGrammars.midnightGeneric,
+  "event_midnight_unshielded_erc20": builtinGrammars.midnightGeneric,
 } as const satisfies GrammarDefinition;

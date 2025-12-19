@@ -13,14 +13,15 @@
 .modal-content {
   background: white;
   color: black;
-  margin: 10% auto;
+  margin: 5vh auto;
   padding: 20px;
   width: 80%;
   max-width: 500px;
   border-radius: 8px;
   position: relative;
   max-height: 80vh;
-  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
 }
 
 .close {
@@ -35,6 +36,8 @@
 .wallet-list {
   list-style: none;
   padding: 0;
+  overflow-y: auto;
+  flex: 1;
 }
 
 .wallet-list li {

@@ -6,6 +6,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=BBH+Bogle&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/src/style.css">
+    <link rel="stylesheet" href="/src/wallet.css">
     <title>Safe Solver</title>
   </head>
   <body>
@@ -13,7 +15,7 @@
       <header id="game-header">
         <h1>Safe Solver</h1>
         <div id="tokens-section" style="display: flex; align-items: center; gap: 20px;">
-            <div id="tokens-display" style="font-weight: bold; font-size: 18px;">TOKENS: 0</div>
+            <div id="tokens-display" style="font-weight: bold; font-size: 18px;">Gold Points: 0</div>
             <button id="btn-add-tokens">ADD tokens</button>
         </div>
         <button id="btn-mute">🔊</button>
@@ -39,11 +41,14 @@
           <div id="main-screen">
             <h1>Safe Solver</h1>
             <button id="btn-start">START</button>
-            <button id="btn-demo">PLAY DEMO</button>
+            <button id="btn-how-to-play">How to Play</button>
           </div>
         </div>
         <aside id="leaderboard">
-          <h2>Leaderboard</h2>
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+            <h2 style="margin: 0;">Leaderboard</h2>
+            <button id="btn-refresh-leaderboard" style="cursor: pointer; padding: 2px 8px; font-size: 16px; background: none; border: 1px solid white; color: white; border-radius: 4px;" title="Refresh">↻</button>
+          </div>
           <div id="leaderboard-header">
             <span>Place</span>
             <span>Address</span>
@@ -98,6 +103,36 @@
           <button id="btn-alert-ok" style="padding: 10px 20px; cursor: pointer;">OK</button>
         </div>
       </div>
+    </div>
+    <div id="how-to-play-modal" class="modal">
+        <div class="modal-content">
+            <span class="close" id="close-how-to-play-modal">&times;</span>
+            <h2>How to Play</h2>
+            <div style="text-align: left; line-height: 1.6;">
+                <p><strong>Goal:</strong> Find the prize hidden in the safes to advance levels and multiply your score!</p>
+                <ul style="margin-bottom: 20px;">
+                    <li><strong>Start:</strong> You will see some safes and you can either:</li>
+                    <li><strong>Pick a Safe:</strong> Click a safe to drill it.
+                        <ul>
+                            <li>✅ <strong>Win:</strong> If it has gold, you get points and move to the next level.</li>
+                            <li>❌ <strong>Lose:</strong> The alarm goes off (bad safe), the game ends immediately!</li>
+                        </ul>
+                    </li>
+                    <li><strong>or Cash Out:</strong> Press "KEEP REWARD" at any time to add your current score to the leaderboard. If you lose, you get 0!</li>
+                </ul>
+                <hr style="border: 0; border-top: 1px solid #ccc; margin: 20px 0;">
+                <h3>Connect Your Real Wallet</h3>
+                <p>To link your progress to your real blockchain wallet:</p>
+                <ol>
+                    <li>Click the <strong>CONNECT WALLET</strong> button in the top right.</li>
+                    <li>Select your wallet provider from the list.</li>
+                    <li>Sign the message to verify ownership and link it to your game account.</li>
+                </ol>
+            </div>
+            <div style="display: flex; justify-content: center; margin-top: 20px;">
+                <button id="btn-how-to-play-ok" style="padding: 10px 20px; cursor: pointer;">Got it!</button>
+            </div>
+        </div>
     </div>
     <script type="module" src="/src/main.ts"></script>
   </body>

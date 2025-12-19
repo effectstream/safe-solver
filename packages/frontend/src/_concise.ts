@@ -23,24 +23,27 @@ export const accountPayload = {
     },
 
     linkAddress: async (
-      wallet1: { walletAddress: string, provider: { signMessage: (message: string) => Promise<string> } },
-      wallet2: { walletAddress: string, provider: { signMessage: (message: string) => Promise<string> } },
+      mainWallet: { provider: { getAddress: () => Promise<{ address: string, type: number }>, signMessage: (message: string) => Promise<string> } },
+      secondaryWallet: { provider: { getAddress: () => Promise<{ address: string, type: number }>, signMessage: (message: string) => Promise<string> } },
 
       accountId: number,
       isNewPrimary: boolean,
     ): Promise<['&linkAddress', number, string, number, string, string, number, boolean]> => {  
-      const signatureFromPrimary = await wallet1.provider.signMessage(
+      const mainWalletAddress = await mainWallet.provider.getAddress();
+      const secondaryWalletAddress = await secondaryWallet.provider.getAddress();
+
+      const signatureFromMainWallet = await mainWallet.provider.signMessage(
         accountMessages.linkAccount(
           accountId,
-          wallet2.walletAddress,
+          secondaryWalletAddress.address,
           isNewPrimary,
         ),
       );
   
-      const signatureFromNewAddress = await wallet2.provider.signMessage(
+      const signatureFromSecondaryWallet = await secondaryWallet.provider.signMessage(
         accountMessages.linkAccount(
           accountId,
-          wallet1.walletAddress,
+          mainWalletAddress.address,
           isNewPrimary,
         ),
       );
@@ -48,11 +51,14 @@ export const accountPayload = {
       return [
         "&linkAddress",
         accountId,
-        signatureFromPrimary,
-        primaryAccountAddressType,
-        newAddress,
-        signatureFromNewAddress,
-        newAccountAddressType,
+
+        signatureFromMainWallet,
+        mainWalletAddress.type,
+
+        secondaryWalletAddress.address,
+        signatureFromSecondaryWallet,
+        secondaryWalletAddress.type,
+
         isNewPrimary,
       ];
     },

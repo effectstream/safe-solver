@@ -1,10 +1,10 @@
 import * as THREE from 'three';
 import TWEEN from '@tweenjs/tween.js';
-import { state, setScore, resetState, removeTokens, addTokens } from './GameState';
+import { state, setScore, resetState } from './GameState';
 import { Safe } from './Safe';
 import { scene, camera, ambientLight, pointLight, resetSceneLighting } from './Scene';
 import { leaderboard } from './Leaderboard';
-import { getConnectedWallet } from './Wallet';
+import { getConnectedWallet, localWallet } from './Wallet';
 import { showCustomAlert } from './Utils';
 import { soundManager } from './SoundManager';
 import { mockService } from './MockService';
@@ -13,6 +13,15 @@ import { particleManager } from './ParticleManager';
 export function updateScoreDisplay() {
     const scoreEl = document.getElementById('score');
     if (scoreEl) scoreEl.innerText = `Score: ${state.score.toFixed(2)}`;
+
+    const cashOutBtn = document.getElementById('btn-cash-out');
+    if (cashOutBtn) {
+        if (state.score > 0) {
+            cashOutBtn.classList.remove('hidden');
+        } else {
+            cashOutBtn.classList.add('hidden');
+        }
+    }
 }
 
 export function updateLevelDisplay() {
@@ -31,18 +40,13 @@ export function updateTokenDisplay() {
     const tokensEl = document.getElementById('tokens-display');
     const addTokensBtn = document.getElementById('btn-add-tokens');
 
-    // Hide the separate tokens display element since we are using the button
+    // Hide tokens display and button as per new requirements
     if (tokensEl) {
         tokensEl.style.display = 'none';
     }
 
     if (addTokensBtn) {
-        addTokensBtn.style.display = 'block';
-        if (state.tokens > 0) {
-            addTokensBtn.innerText = `Tokens: ${state.tokens.toFixed(2)}`;
-        } else {
-            addTokensBtn.innerText = 'ADD TOKENS';
-        }
+        addTokensBtn.style.display = 'none';
     }
 }
 
@@ -57,7 +61,7 @@ export function updateMultiplierDisplay() {
 
 export function showMainScreen() {
     state.isPlaying = false;
-    leaderboard.render();
+    leaderboard.fetchData();
     const mainScreen = document.getElementById('main-screen');
     const info = document.getElementById('info');
     const scoreEl = document.getElementById('score');
@@ -101,15 +105,8 @@ export function showMainScreen() {
 export async function startGame(isDemo: boolean = false) {
     soundManager.play('bgm');
     state.isDemo = isDemo;
-
-
-    if (!isDemo) {
-        if (!removeTokens(1)) {
-            showCustomAlert("Not enough tokens! Please add more tokens.");
-            return;
-        }
-        updateTokenDisplay();
-    }
+    // Score starts at 0
+    state.score = 0;
 
     state.isPlaying = true;
     resetState(); // Reset level to 1, score, etc.
@@ -130,7 +127,7 @@ export async function startGame(isDemo: boolean = false) {
     if (info) info.classList.remove('hidden');
     if (scoreEl) scoreEl.classList.remove('hidden');
     if (levelEl) levelEl.classList.remove('hidden');
-    if (cashOutBtn) cashOutBtn.classList.remove('hidden');
+    // cashOutBtn visibility handled by updateScoreDisplay (initially hidden if score 0)
     if (multBadge) multBadge.classList.remove('hidden');
 
     await startLevel();
@@ -142,28 +139,29 @@ export function cashOut() {
     } else {
         soundManager.play('cashout');
         const wallet = getConnectedWallet();
+         
         const name = wallet?.walletAddress 
             ? `${wallet.walletAddress.substring(0, 6)}...${wallet.walletAddress.substring(wallet.walletAddress.length - 4)}` 
-            : 'Guest';
+            : `${localWallet.walletAddress.substring(0, 6)}...${localWallet.walletAddress.substring(localWallet.walletAddress.length - 4)}`;
         
         // Use the async addScore from leaderboard which calls MockService
-        leaderboard.addScore(name, state.score);
+        mockService.submitScore(name, state.score).then(() => {
+             leaderboard.render();
+        });
 
-        addTokens(state.score);
+        // No longer adding tokens locally, assume submitted score handles it
         updateTokenDisplay();
         showCustomAlert(`Cashed Out! +${state.score.toFixed(2)} Tokens`);
     }
     showMainScreen();
 }
 
-export async function startLevel() {
+export async function startLevel(numSafesOverride?: number) {
     state.isProcessing = true; // Block input while loading
     state.levelStartTime = Date.now();
     updateLevelDisplay();
     updateMultiplierDisplay();
     
-    const previousNumSafes = state.safes.length;
-
     // Clear existing safes
     state.safes.forEach(s => s.destroy());
     state.safes.length = 0;
@@ -215,18 +213,31 @@ export async function startLevel() {
         info.style.color = "yellow";
     }
 
-    // Generate Level
-    let numSafes;
-    do {
-        numSafes = Math.floor(Math.random() * (7 - 3 + 1)) + 3; // 3 to 7
-    } while (numSafes === previousNumSafes);
+    let numSafes = 3;
 
-    // Initial mock service call
-    try {
-        await mockService.initLevel(numSafes, state.level);
-    } catch (error) {
-        console.error("Failed to init level:", error);
-        // Fallback or retry? For now, we continue but server might be out of sync
+    if (state.level === 1) {
+        // Initial Level: Generate random safes locally or fixed?
+        // Prompt said "When initLevel is called also add a random hash..."
+        // We need to call initLevel for level 1.
+        // We can pick random numSafes here.
+        numSafes = Math.floor(Math.random() * (7 - 3 + 1)) + 3; // 3 to 7
+        
+        // Initial mock service call only for start
+        try {
+            await mockService.initLevel(numSafes, state.level);
+        } catch (error) {
+            console.error("Failed to init level:", error);
+        }
+    } else {
+        // Subsequent levels: Next level is set.
+        // We should have received numSafes from previous checkSafe response
+        if (numSafesOverride) {
+            numSafes = numSafesOverride;
+        } else {
+             // Fallback if missing
+             numSafes = Math.floor(Math.random() * (7 - 3 + 1)) + 3;
+        }
+        // Do NOT call initLevel
     }
 
     if (info) {
@@ -244,7 +255,7 @@ export async function startLevel() {
         6: [3, 3],
         7: [3, 2, 2]
     };
-    const rowConfig = layouts[numSafes];
+    const rowConfig = layouts[numSafes] || layouts[3];
     const rowSpacing = 2.5; // Vertical spacing
     const colSpacing = 3.5; // Horizontal spacing
     
@@ -290,7 +301,7 @@ export async function startLevel() {
         .start();
 }
 
-export function winLevel(safe: Safe, prize: number) {
+export function winLevel(safe: Safe, prize: number, nextSafeCount?: number) {
     soundManager.play('win');
     const info = document.getElementById('info');
     // Prize passed from server check
@@ -314,7 +325,7 @@ export function winLevel(safe: Safe, prize: number) {
     // Next level after delay (increased to allow score update to be seen)
     setTimeout(() => {
         state.level++;
-        startLevel();
+        startLevel(nextSafeCount);
     }, 2500);
 }
 
@@ -381,6 +392,9 @@ export function loseGame() {
 
 export async function handleSafeClick(safe: Safe) {
     if (safe.isOpened) return;
+
+    const cashOutBtn = document.getElementById('btn-cash-out');
+    if (cashOutBtn) cashOutBtn.classList.add('hidden');
     
     soundManager.play('click');
     soundManager.play('drill');
@@ -395,7 +409,7 @@ export async function handleSafeClick(safe: Safe) {
         if (result.isBad) {
             loseGame();
         } else {
-            winLevel(safe, result.prize);
+            winLevel(safe, result.prize, result.nextSafeCount);
         }
     } catch (error) {
         console.error("Error checking safe:", error);

@@ -1,9 +1,9 @@
 import { Safe } from './Safe';
 
 export const state = {
-    score: 1.0,
+    score: 0,
     level: 1,
-    tokens: 0,
+    tokens: 0, // Deprecated but kept for type compat if needed for now
     isPlaying: false,
     isDemo: false,
     isProcessing: false,
@@ -14,7 +14,7 @@ export const state = {
 
 export function resetState() {
     state.isProcessing = false;
-    state.score = 1.0;
+    state.score = 0; // Starts at 0
     state.level = 1;
     state.safes = [];
     state.hoveredSafe = null;
@@ -23,16 +23,4 @@ export function resetState() {
 
 export function setScore(newScore: number) {
     state.score = newScore;
-}
-
-export function removeTokens(amount: number): boolean {
-    if (state.tokens >= amount) {
-        state.tokens -= amount;
-        return true;
-    }
-    return false;
-}
-
-export function addTokens(amount: number) {
-    state.tokens += amount;
 }

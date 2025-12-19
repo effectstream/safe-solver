@@ -59,3 +59,48 @@ export function showCustomAlert(message: string, title: string = 'Safe Solver') 
         alert(message);
     }
 }
+
+export function showToast(message: string, duration: number = 3000) {
+    let container = document.getElementById('toast-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'toast-container';
+        document.body.appendChild(container);
+    }
+
+    const toast = document.createElement('div');
+    toast.className = 'toast';
+    toast.textContent = message;
+    
+    container.appendChild(toast);
+    
+    // Trigger reflow for animation
+    void toast.offsetHeight;
+    
+    toast.classList.add('show');
+
+    const removeToast = () => {
+        toast.classList.remove('show');
+        setTimeout(() => {
+            if (container && container.contains(toast)) {
+                container.removeChild(toast);
+            }
+            // Remove container if empty? Maybe not necessary
+        }, 300);
+    };
+
+    let timer: any;
+    if (duration > 0) {
+        timer = setTimeout(removeToast, duration);
+    }
+
+    return {
+        updateMessage: (msg: string) => {
+            toast.textContent = msg;
+        },
+        close: () => {
+            if (timer) clearTimeout(timer);
+            removeToast();
+        }
+    }
+}

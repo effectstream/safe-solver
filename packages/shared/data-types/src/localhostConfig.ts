@@ -46,12 +46,7 @@ export const localhostConfig = new ConfigBuilder()
       .addNetwork({
         name: "ntp",
         type: ConfigNetworkType.NTP,
-        // Initial time for the Paima Engine Node. Unix Timestamp in milliseconds.
-        // Give 2 minutes to the server to start syncing.
-        // In development mode local chains can take a while to start and deploy contracts.
         startTime: launchStartTime ?? new Date().getTime(),
-        // Block size is milliseconds, this will be used to sync other chains.
-        // Block times will be exact, and not affected by the network latency, or server time.
         blockTimeMS: 1000,
       })
       .addViemNetwork({
@@ -67,16 +62,7 @@ export const localhostConfig = new ConfigBuilder()
         nodeUrl: "http://127.0.0.1:9944",
       })
   )
-  .buildDeployments((builder) =>
-    builder.addDeployment(
-      (networks) => networks.evmMain,
-      (_network) => ({
-        name: "Erc721DevModule#Erc721Dev",
-        address:
-          contractAddressesEvmMain().chain31337["Erc721DevModule#Erc721Dev"],
-      })
-    )
-  )
+  .buildDeployments(builder => builder)
   .buildSyncProtocols((builder) =>
     builder
       .addMain(
@@ -86,7 +72,7 @@ export const localhostConfig = new ConfigBuilder()
           type: ConfigSyncProtocolType.NTP_MAIN,
           chainUri: "",
           startBlockHeight: 1,
-          pollingInterval: 1000,
+          pollingInterval: 500,
         })
       )
       .addParallel(
@@ -97,7 +83,7 @@ export const localhostConfig = new ConfigBuilder()
           chainUri: network.rpcUrls.default.http[0],
           startBlockHeight: 1,
           pollingInterval: 500,
-          confirmationDepth: 1,
+          confirmationDepth: 0,
         })
       )
       .addParallel(
@@ -109,6 +95,7 @@ export const localhostConfig = new ConfigBuilder()
           pollingInterval: 1000,
           indexer: "http://127.0.0.1:8088/api/v1/graphql",
           indexerWs: "ws://127.0.0.1:8088/api/v1/graphql/ws",
+          delayMs: 30000,
         })
       )
   )
@@ -137,7 +124,7 @@ export const localhostConfig = new ConfigBuilder()
             "unshielded-erc20",
             "contract-unshielded-erc20.json"
           ).contractAddress,
-          stateMachinePrefix: "event_midnight_unshielded-erc20",
+          stateMachinePrefix: "event_midnight_unshielded_erc20",
           contract: { ledger: unshielded_erc20Contract.ledger },
           networkId: 0,
         })

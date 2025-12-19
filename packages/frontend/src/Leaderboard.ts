@@ -7,18 +7,31 @@ export interface LeaderboardEntry {
 
 class Leaderboard {
     private entries: LeaderboardEntry[] = [];
+    private isLoading: boolean = true;
 
     constructor() {
         // Initial load
         this.fetchData();
+
+        // Setup refresh button
+        const refreshBtn = document.getElementById('btn-refresh-leaderboard');
+        if (refreshBtn) {
+            refreshBtn.addEventListener('click', () => {
+                this.fetchData();
+            });
+        }
     }
 
     async fetchData() {
+        this.isLoading = true;
+        this.render();
         try {
             this.entries = await mockService.getLeaderboard();
-            this.render();
         } catch (error) {
             console.error("Failed to fetch leaderboard", error);
+        } finally {
+            this.isLoading = false;
+            this.render();
         }
     }
 
@@ -36,8 +49,13 @@ class Leaderboard {
         if (!list) return;
 
         list.innerHTML = '';
-        if (this.entries.length === 0) {
+        if (this.isLoading) {
             list.innerHTML = '<li>Loading...</li>';
+            return;
+        }
+
+        if (this.entries.length === 0) {
+            list.innerHTML = '<li>No players found</li>';
             return;
         }
 
