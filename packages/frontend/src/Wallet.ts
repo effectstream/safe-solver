@@ -341,8 +341,12 @@ export function initWalletUI() {
                           <ul style="margin:0; padding-left:15px; font-size:0.75em; font-family:monospace;">
                             ${addresses.map(a => {
                                 const isMain = a.address === primaryAddr;
+                                const isLocal = a.address === address;
                                 const shortAddr = a.address.substring(0, 6) + '...' + a.address.substring(a.address.length - 4);
-                                return `<li>${shortAddr}${isMain ? ' (Main Wallet)' : ''}</li>`;
+                                let label = '';
+                                if (isMain) label += ' (Main Wallet)';
+                                if (isLocal) label += ' (Local Wallet Address)';
+                                return `<li>${shortAddr}${label}</li>`;
                             }).join('')}
                           </ul>
                         </div>
@@ -360,6 +364,8 @@ export function initWalletUI() {
                     <p style="margin:0; font-weight:bold;">Local Wallet Address:</p>
                     <p style="margin:5px 0; font-family:monospace; font-size:0.85em; background: #f0f0f0; padding: 5px; border-radius: 4px;">${address}</p>
                     <p style="margin:5px 0 0; font-size:0.8em; color:#666;">This is an auto-generated local wallet unique to your browser session.</p>
+
+                    <div style="border-top: 1px solid #ccc; margin: 10px 0;"></div>
 
                     ${accountHtml}
                     <button id="btn-delete-local-data" style="margin-top: 5px; padding: 5px 10px; background: #cc0000; color: white; border: none; border-radius: 3px; cursor: pointer; font-size: 0.8em;">Delete Local Data</button>

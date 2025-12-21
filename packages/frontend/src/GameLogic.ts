@@ -133,25 +133,41 @@ export async function startGame(isDemo: boolean = false) {
     await startLevel();
 }
 
-export function cashOut() {
+export async function cashOut() {
     if (state.isDemo) {
         showCustomAlert(`Demo Game Over! You would have won ${state.score.toFixed(2)} tokens.`);
     } else {
         soundManager.play('cashout');
         const wallet = getConnectedWallet();
          
-        const name = wallet?.walletAddress 
-            ? `${wallet.walletAddress.substring(0, 6)}...${wallet.walletAddress.substring(wallet.walletAddress.length - 4)}` 
-            : `${localWallet.walletAddress.substring(0, 6)}...${localWallet.walletAddress.substring(localWallet.walletAddress.length - 4)}`;
+        const address = wallet?.walletAddress || localWallet?.walletAddress;
         
-        // Use the async addScore from leaderboard which calls MockService
-        mockService.submitScore(name, state.score).then(() => {
-             leaderboard.render();
-        });
+        let accountId: number | undefined;
+
+        if (address) {
+            try {
+                const info = await mockService.getAddressInfo(address);
+                if (info && info.account_id) {
+                    accountId = info.account_id;
+                }
+            } catch (e) {
+                console.warn("Failed to fetch account info for cashout", e);
+            }
+        }
+        
+        if (accountId !== undefined) {
+             // Use the async addScore from leaderboard which calls MockService
+             mockService.submitScore(accountId).then(() => {
+                  leaderboard.render();
+             });
+             showCustomAlert(`Cashed Out! +${state.score.toFixed(2)} Tokens`);
+        } else {
+            console.error("Could not find account ID for cashout");
+            showCustomAlert("Error cashing out: Account not found");
+        }
 
         // No longer adding tokens locally, assume submitted score handles it
         updateTokenDisplay();
-        showCustomAlert(`Cashed Out! +${state.score.toFixed(2)} Tokens`);
     }
     showMainScreen();
 }
@@ -215,30 +231,61 @@ export async function startLevel(numSafesOverride?: number) {
 
     let numSafes = 3;
 
-    if (state.level === 1) {
-        // Initial Level: Generate random safes locally or fixed?
-        // Prompt said "When initLevel is called also add a random hash..."
-        // We need to call initLevel for level 1.
-        // We can pick random numSafes here.
-        numSafes = Math.floor(Math.random() * (7 - 3 + 1)) + 3; // 3 to 7
-        
-        // Initial mock service call only for start
-        try {
-            await mockService.initLevel(numSafes, state.level);
-        } catch (error) {
-            console.error("Failed to init level:", error);
+    // Check if we can continue an ongoing game first
+    try {
+        const wallet = getConnectedWallet();
+        const address = wallet?.walletAddress || localWallet?.walletAddress;
+        if (address) {
+            const gameState = await mockService.getGameState(address);
+            if (gameState && gameState.is_ongoing) {
+                console.log("Resuming ongoing game...", gameState);
+                state.level = gameState.round;
+                state.score = gameState.current_score || 0;
+                numSafes = gameState.safe_count || 3;
+                updateLevelDisplay();
+                updateScoreDisplay();
+                updateMultiplierDisplay();
+                // Skip initLevel since game is ongoing
+            } else if (state.level === 1) {
+                // No ongoing game, start new one
+                // Initial Level: Generate random safes locally or fixed?
+                // Prompt said "When initLevel is called also add a random hash..."
+                // We need to call initLevel for level 1.
+                
+                // Initial mock service call only for start
+                try {
+                    await mockService.initLevel();
+                    // Re-fetch state to get safe count if needed, though we default to 3 or random
+                    const newGameState = await mockService.getGameState(address);
+                     if (newGameState && newGameState.safe_count) {
+                        numSafes = newGameState.safe_count;
+                    }
+                } catch (error) {
+                    console.error("Failed to init level:", error);
+                }
+            } else {
+                 // Level > 1 and not resuming (should be covered by else block logic or parameter override)
+            }
         }
-    } else {
-        // Subsequent levels: Next level is set.
-        // We should have received numSafes from previous checkSafe response
-        if (numSafesOverride) {
-            numSafes = numSafesOverride;
-        } else {
-             // Fallback if missing
-             numSafes = Math.floor(Math.random() * (7 - 3 + 1)) + 3;
-        }
-        // Do NOT call initLevel
+    } catch (e) {
+        console.error("Error checking game state:", e);
     }
+    
+    // If not level 1 and we are here, we might be advancing levels in a session
+    if (state.level > 1 && !numSafesOverride) {
+        // Fallback or use override
+         // We should have received numSafes from previous checkSafe response
+    }
+    
+    if (numSafesOverride) {
+        numSafes = numSafesOverride;
+    } else if (state.level > 1 && !numSafes) { 
+          // If we are here and numSafes is still 3 (default) but level > 1, 
+          // and we didn't resume, we might need to randomize or we are in trouble.
+          // Let's assume the previous logic holds if not resuming.
+           numSafes = Math.floor(Math.random() * (7 - 3 + 1)) + 3;
+    }
+
 
     if (info) {
         info.innerText = "Choose a safe to open...";

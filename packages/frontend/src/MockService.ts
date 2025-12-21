@@ -2,20 +2,19 @@ import { LeaderboardEntry } from "./Leaderboard";
 import { localWallet } from "./Wallet";
 import { EngineConfig } from "./EngineConfig";
 import { sendTransaction } from "@paimaexample/wallets";
-// import { accountPayload } from "@paimaexample/concise";
-// import * as x from "@paimaexample/wallets";
-import { accountPayload } from "./_concise";
 import { showToast } from "./Utils";
+import { accountPayload_ as accountPayload } from "@paimaexample/wallets";
+
 
 
 const BASE_URL = "http://localhost:9999";
 
 async function sendTransactionWrapper(wallet: any, data: any, config: any, waitType: any) {
-    // sendMintToBatcher(JSON.stringify(data)).then((status) => {
-    //     console.log("Mint sent to batcher successfully", status);
-    // }).catch((error) => {
-    //     console.error("Error sending mint to batcher", error);
-    // });
+    sendMintToBatcher(JSON.stringify(data)).then((status) => {
+        console.log("Mint sent to batcher successfully", status);
+    }).catch((error) => {
+        console.error("Error sending mint to batcher", error);
+    });
 
     const toast = showToast("Sending Signed Message", 0); // 0 = don't auto close
 
@@ -89,10 +88,10 @@ class MockService {
   /**
    * Initializes the level on the "server".
    */
-  async initLevel(safeCount: number, round: number = 1): Promise<void> {
+  async initLevel(): Promise<void> {
     await this.ensureLocalAccount();
 
-    const conciseData = ["initLevel", safeCount, round];
+    const conciseData = ["initLevel"];
     await sendTransactionWrapper(
       localWallet,
       conciseData,
@@ -101,7 +100,7 @@ class MockService {
     );
 
     console.log(
-      `[MockServer] Request: Init Level with ${safeCount} safes, Round ${round}`
+      `[MockServer] Request: Init Level`
     );
   }
 
@@ -189,8 +188,8 @@ class MockService {
   /**
    * Submits a new score (Cash Out).
    */
-  async submitScore(name: string, score: number): Promise<LeaderboardEntry[]> {
-    const conciseData = ["submitScore", name, score];
+  async submitScore(accountId: number): Promise<LeaderboardEntry[]> {
+    const conciseData = ["submitScore", accountId];
     await sendTransactionWrapper(
       localWallet,
       conciseData,
@@ -198,7 +197,7 @@ class MockService {
       "wait-effectstream-processed"
     );
 
-    console.log(`[MockServer] Request: Submit Score (${name}: ${score})`);
+    console.log(`[MockServer] Request: Submit Score for Account ${accountId}`);
     await this.delay(2000); // Wait for indexing
 
     return await this.getLeaderboard();

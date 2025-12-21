@@ -124,7 +124,7 @@ export const localhostConfig = new ConfigBuilder()
             "unshielded-erc20",
             "contract-unshielded-erc20.json"
           ).contractAddress,
-          stateMachinePrefix: "event_midnight_unshielded_erc20",
+          stateMachinePrefix: "event_midnight",
           contract: { ledger: unshielded_erc20Contract.ledger },
           networkId: 0,
         })
