@@ -1,4 +1,4 @@
-import { mockService } from './MockService';
+import { effectStreamService } from './EffectStreamService';
 
 export interface LeaderboardEntry {
     name: string;
@@ -26,7 +26,7 @@ class Leaderboard {
         this.isLoading = true;
         this.render();
         try {
-            this.entries = await mockService.getLeaderboard();
+            this.entries = await effectStreamService.getLeaderboard();
         } catch (error) {
             console.error("Failed to fetch leaderboard", error);
         } finally {
@@ -37,7 +37,7 @@ class Leaderboard {
 
     async addScore(name: string, score: number) {
         try {
-            this.entries = await mockService.submitScore(name, score);
+            this.entries = await effectStreamService.submitScore(name, score);
             this.render();
         } catch (error) {
             console.error("Failed to submit score", error);

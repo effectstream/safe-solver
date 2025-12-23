@@ -58,6 +58,10 @@ stm.addStateTransition("setName", function* (data) {
     console.log(`[setName] No name provided`);
     return;
   }
+  if (name.length > 24) {
+    console.log(`[setName] Name too long: ${name}`);
+    return;
+  }
   const accountId = yield* getAccountId(data.signerAddress, data.signerAddressType);
   if (accountId === null) return;
   console.log(`🎉 [setName] Account ${accountId} -> ${name}`);

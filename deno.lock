@@ -7491,7 +7491,7 @@
           "npm:@paimaexample/npm-midnight-proof-server@0.3.124"
         ]
       },
-      "packages/shared/contracts/midnight-contracts/unshielded-erc20": {
+      "packages/shared/contracts/midnight-contracts/midnight-data": {
         "dependencies": [
           "npm:vitest@^3.2.4"
         ]

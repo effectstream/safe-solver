@@ -1,6 +1,6 @@
-import { LeaderboardEntry } from "./Leaderboard";
-import { localWallet } from "./Wallet";
-import { EngineConfig } from "./EngineConfig";
+import { LeaderboardEntry } from "./EffectStreamLeaderboard";
+import { getLocalWallet } from "./EffectStreamWallet";
+import { EngineConfig } from "./EffectStreamEngineConfig";
 import { sendTransaction } from "@paimaexample/wallets";
 import { showToast } from "./Utils";
 import { accountPayload_ as accountPayload } from "@paimaexample/wallets";
@@ -9,48 +9,43 @@ import { AddressType } from "@paimaexample/wallets";
 const BATCHER_URL = "http://localhost:3334";
 const BASE_URL = "http://localhost:9999";
 
-async function sendTransactionWrapper(wallet: any, data: any, config: any, waitType: any) {
-  sendMintToBatcher(JSON.stringify(data)).then((status) => {
-    console.log("Mint sent to batcher successfully", status);
-  }).catch((error) => {
-    console.error("Error sending mint to batcher", error);
-  });
-
-  const toast = showToast("Sending Signed Message", 0); // 0 = don't auto close
-
-  const t1 = setTimeout(() => {
-    toast.updateMessage("Writing in Blockchain");
-  }, 1000);
-
-  const t2 = setTimeout(() => {
-    toast.updateMessage("Waiting for Update");
-  }, 2000);
-
-  try {
-    const result = await sendTransaction(wallet, data, config, waitType);
-    return result;
-  } finally {
-    clearTimeout(t1);
-    clearTimeout(t2);
-    toast.close();
-  }
-}
-
-export interface SafeResult {
-  isBad: boolean;
-  prize: number;
-  nextSafeCount?: number;
-}
-
-class MockService {
+class EffectStreamService {
   private async delay(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  private async sendTransactionWrapper(wallet: any, data: any, config: any, waitType: any) {
+    sendMintToBatcher(JSON.stringify(data)).then((status) => {
+      console.log("Mint sent to batcher successfully", status);
+    }).catch((error) => {
+      console.error("Error sending mint to batcher", error);
+    });
+  
+    const toast = showToast("Sending Signed Message", 0); // 0 = don't auto close
+  
+    const t1 = setTimeout(() => {
+      toast.updateMessage("Writing in Blockchain");
+    }, 1000);
+  
+    const t2 = setTimeout(() => {
+      toast.updateMessage("Waiting for Update");
+    }, 2000);
+  
+    try {
+      const result = await sendTransaction(wallet, data, config, waitType);
+      return result;
+    } finally {
+      clearTimeout(t1);
+      clearTimeout(t2);
+      toast.close();
+    }
   }
 
   /**
    * Helper to ensure the local wallet has an account before proceeding.
    */
   private async ensureLocalAccount(): Promise<void> {
+    const localWallet = getLocalWallet();
     if (!localWallet) {
       throw new Error("Local wallet not found");
     }
@@ -65,7 +60,7 @@ class MockService {
 
       console.log("[MockServer] Creating account for local wallet...");
       const createAccData = await accountPayload.createAccount();
-      await sendTransactionWrapper(
+      await this.sendTransactionWrapper(
         localWallet,
         createAccData,
         EngineConfig,
@@ -89,10 +84,14 @@ class MockService {
    * Initializes the level on the "server".
    */
   async initLevel(): Promise<void> {
+    const localWallet = getLocalWallet();
+    if (!localWallet) {
+      throw new Error("Local wallet not found");
+    }
     await this.ensureLocalAccount();
 
     const conciseData = ["initLevel"];
-    await sendTransactionWrapper(
+    await this.sendTransactionWrapper(
       localWallet,
       conciseData,
       EngineConfig,
@@ -115,14 +114,22 @@ class MockService {
   /**
    * Checks if the clicked safe is bad.
    */
-  async checkSafe(safeIndex: number): Promise<SafeResult> {
+  async checkSafe(safeIndex: number): Promise<{
+    isBad: boolean;
+    prize: number;
+    nextSafeCount?: number;
+  }> {
+    const localWallet = getLocalWallet();
+    if (!localWallet) {
+      throw new Error("Local wallet not found");
+    }
     const walletAddress = (await localWallet.provider.getAddress()).address;
 
     // Get state BEFORE transaction
     const beforeState = await this.getGameState(walletAddress);
 
     const conciseData = ["checkSafe", safeIndex];
-    await sendTransactionWrapper(
+    await this.sendTransactionWrapper(
       localWallet,
       conciseData,
       EngineConfig,
@@ -188,8 +195,12 @@ class MockService {
    * Submits a new score (Cash Out).
    */
   async submitScore(accountId: number): Promise<LeaderboardEntry[]> {
+    const localWallet = getLocalWallet();
+    if (!localWallet) {
+      throw new Error("Local wallet not found");
+    }
     const conciseData = ["submitScore", accountId];
-    await sendTransactionWrapper(
+    await this.sendTransactionWrapper(
       localWallet,
       conciseData,
       EngineConfig,
@@ -298,7 +309,7 @@ class MockService {
     if (!localHasAccount && !realHasAccount) {
       console.log("[MockServer] Case 1: Creating account for local...");
       const createAccData = await accountPayload.createAccount();
-      await sendTransactionWrapper(
+      await this.sendTransactionWrapper(
         localWallet,
         createAccData,
         EngineConfig,
@@ -332,7 +343,7 @@ class MockService {
         currentLocalId,
         true // Real becomes new primary
       );
-      await sendTransactionWrapper(
+      await this.sendTransactionWrapper(
         localWallet,
         conciseData,
         EngineConfig,
@@ -367,7 +378,7 @@ class MockService {
           realId,
           false
         );
-        await sendTransactionWrapper(
+        await this.sendTransactionWrapper(
           localWallet,
           conciseData,
           EngineConfig,
@@ -389,10 +400,13 @@ class MockService {
    */
   async setUserName(walletAddress: string, name: string): Promise<boolean> {
     await this.ensureLocalAccount();
-
+    const localWallet = getLocalWallet();
+    if (!localWallet) {
+      throw new Error("Local wallet not found");
+    }
     // We send transaction. Name is updated on chain.
     const conciseData = ["setName", name];
-    await sendTransactionWrapper(
+    await this.sendTransactionWrapper(
       localWallet,
       conciseData,
       EngineConfig,
@@ -416,7 +430,11 @@ async function sendMintToBatcher(
     circuit: "storeValue",
     args: [_input],
   });
-  const target = "midnightAdapter_unshielded_erc20";
+  const localWallet = getLocalWallet();
+  if (!localWallet) {
+    throw new Error("Local wallet not found");
+  }
+  const target = "midnightAdapter_midnight_data";
   const address = localWallet.provider.getAddress().address;
   const addressType = localWallet.provider.getAddress().type;
   const timestamp = Date.now();
@@ -447,4 +465,4 @@ async function sendMintToBatcher(
   return response.status;
 }
 
-export const mockService = new MockService();
+export const effectStreamService = new EffectStreamService();

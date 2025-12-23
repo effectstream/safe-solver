@@ -1,9 +1,9 @@
 import { DefaultBatcherInput, MidnightAdapter } from "@paimaexample/batcher";
 import { readMidnightContract } from "@paimaexample/midnight-contracts/read-contract";
 
-import * as unshielded_erc20Info from "@safe-solver/midnight-contract-unshielded-erc20";
+import * as midnightDataContractInfo from "@safe-solver/midnight-contract-midnight-data";
 
-import * as unshielded_erc20Contract from "@safe-solver/midnight-contract-unshielded-erc20/contract";
+import * as midnightDataContract from "@safe-solver/midnight-contract-midnight-data/contract";
 import { CryptoManager } from "@paimaexample/crypto";
 // import { AccountType } from "@paimaexample/wallets";
 
@@ -11,7 +11,7 @@ const {
   contractInfo: contractInfo0,
   contractAddress: contractAddress0,
   zkConfigPath: zkConfigPath0,
-} = readMidnightContract("unshielded-erc20", "contract-unshielded-erc20.json");
+} = readMidnightContract("midnight-data", "contract-midnight-data.json");
 /** MIDNIGHT-READ-CONTRACT-BLOCK  */
 
 const GENESIS_MINT_WALLET_SEED =
@@ -30,8 +30,8 @@ const midnightAdapterConfig0 = {
   node,
   proofServer,
   zkConfigPath: zkConfigPath0,
-  privateStateStoreName: "private-state-unshielded_erc20Contract", // Local LevelDB store
-  privateStateId: "unshielded_erc20ContractPrivateState", // On-chain contract ID (must match deploy.ts)
+  privateStateStoreName: "private-state-midnightDataContract", // Local LevelDB store
+  privateStateId: "midnightDataContractPrivateState", // On-chain contract ID (must match deploy.ts)
 };
 
 class EVMMidnightAdapter extends MidnightAdapter {
@@ -46,12 +46,12 @@ class EVMMidnightAdapter extends MidnightAdapter {
   }
 }
 
-export const midnightAdapter_unshielded_erc20 = new EVMMidnightAdapter(
+export const midnightAdapter_midnight_data = new EVMMidnightAdapter(
   contractAddress0,
   GENESIS_MINT_WALLET_SEED,
   midnightAdapterConfig0,
-  new unshielded_erc20Contract.Contract(unshielded_erc20Info.witnesses),
-  unshielded_erc20Info.witnesses,
+  new midnightDataContract.Contract(midnightDataContractInfo.witnesses),
+  midnightDataContractInfo.witnesses,
   contractInfo0,
   networkID,
   syncProtocolName
@@ -59,5 +59,6 @@ export const midnightAdapter_unshielded_erc20 = new EVMMidnightAdapter(
 
 
 export const midnightAdapters: Record<string, MidnightAdapter> = {
-  "unshielded-erc20": midnightAdapter_unshielded_erc20,
+  // @ts-ignore next line mismatch super type
+  "midnight-data": midnightAdapter_midnight_data,
 };

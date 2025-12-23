@@ -4,20 +4,20 @@ import {
 } from "@paimaexample/midnight-contracts/deploy";
 
 import {
-  unshielded_erc20,
-  witnesses as unshielded_erc20Witnesses,
-} from "./unshielded-erc20/src/index.original.ts";
+  midnight_data,
+  witnesses as midnightDataWitnesses,
+} from "./midnight-data/src/index.original.ts";
 
 const configs: DeployConfig[] = [
   {
-    contractName: "unshielded-erc20",
-    contractFileName: "contract-unshielded-erc20.json",
-    contractClass: unshielded_erc20.Contract,
-    witnesses: unshielded_erc20Witnesses,
-    privateStateId: "unshielded_erc20State",
+    contractName: "midnight-data",
+    contractFileName: "contract-midnight-data.json",
+    contractClass: midnight_data.Contract,
+    witnesses: midnightDataWitnesses,
+    privateStateId: "midnightDataState",
     initialPrivateState: {},
     deployArgs: [],
-    privateStateStoreName: "unshielded-erc20-private-state",
+    privateStateStoreName: "midnight-data-private-state",
     extractWalletAddress: true, // Extract wallet address and replace last arg with initialOwner
   },
 ];

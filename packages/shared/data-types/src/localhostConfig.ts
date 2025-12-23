@@ -1,6 +1,6 @@
 import { contractAddressesEvmMain } from "@safe-solver/evm-contracts";
 import { readMidnightContract } from "@paimaexample/midnight-contracts/read-contract";
-import * as unshielded_erc20Contract from "@safe-solver/midnight-contract-unshielded-erc20/contract";
+import * as midnightDataContract from "@safe-solver/midnight-contract-midnight-data/contract";
 
 import {
   ConfigBuilder,
@@ -117,15 +117,15 @@ export const localhostConfig = new ConfigBuilder()
       .addPrimitive(
         (syncProtocols) => syncProtocols.parallelMidnight,
         (network, deployments, syncProtocol) => ({
-          name: "primitive_unshielded-erc20",
+          name: "primitive_midnight-data",
           type: builtin.PrimitiveTypeMidnightGeneric,
           startBlockHeight: 1,
           contractAddress: readMidnightContract(
-            "unshielded-erc20",
-            "contract-unshielded-erc20.json"
+            "midnight-data",
+            "contract-midnight-data.json"
           ).contractAddress,
           stateMachinePrefix: "event_midnight",
-          contract: { ledger: unshielded_erc20Contract.ledger },
+          contract: { ledger: midnightDataContract.ledger },
           networkId: 0,
         })
       )

@@ -1,14 +1,16 @@
 import TWEEN from '@tweenjs/tween.js';
+import { effectStreamService } from './EffectStreamService';
+import { initializeLocalWallet, getLocalWallet } from './EffectStreamWallet';
+
 import { scene, camera, renderer, initScene, backgroundTexture } from './Scene';
 import { showMainScreen, startGame, cashOut, updateTokenDisplay } from './GameLogic';
 import { initInput } from './Input';
 import { fixBackgroundSize, setupAlertModal, showCustomAlert } from './Utils';
 import { Drill } from './Drill';
 import { state } from './GameState';
-import { initWalletUI, getConnectedWallet, initializeLocalWallet, updateSetNameButtonLabel } from './Wallet';
 import { soundManager } from './SoundManager';
-import { mockService } from './MockService';
 import { particleManager } from './ParticleManager';
+import { initWalletUI, updateSetNameButtonLabel } from './Wallet';
 
 // Initialize Scene
 initScene(() => {
@@ -24,7 +26,7 @@ initializeLocalWallet().then(async (wallet) => {
     if (wallet && wallet.walletAddress) {
         // Fetch profile for local wallet on startup
         try {
-            const profile = await mockService.getUserProfile(wallet.walletAddress);
+            const profile = await effectStreamService.getUserProfile(wallet.walletAddress);
             // Tokens not used anymore for starting game
             updateTokenDisplay();
 
@@ -59,14 +61,14 @@ const inputPlayerName = document.getElementById('input-player-name') as HTMLInpu
 if (btnSetName && setNameModal) {
     btnSetName.addEventListener('click', async () => {
         setNameModal.style.display = 'block';
-        let wallet = getConnectedWallet();
+        let wallet = getLocalWallet();
         if (!wallet) {
             wallet = await initializeLocalWallet();
         }
 
         if (wallet && wallet.walletAddress) {
              try {
-                const profile = await mockService.getUserProfile(wallet.walletAddress);
+                const profile = await effectStreamService.getUserProfile(wallet.walletAddress);
                 inputPlayerName.value = profile.name || '';
              } catch (e) {
                  console.error("Failed to load profile for name", e);
@@ -95,7 +97,7 @@ if (btnConfirmSetName && setNameModal && inputPlayerName) {
             return;
         }
 
-        let wallet = getConnectedWallet();
+        let wallet = getLocalWallet();
         if (!wallet) {
              wallet = await initializeLocalWallet();
         }
@@ -109,7 +111,7 @@ if (btnConfirmSetName && setNameModal && inputPlayerName) {
         btnConfirmSetName.innerText = "Saving...";
 
         try {
-            await mockService.setUserName(wallet.walletAddress, name);
+            await effectStreamService.setUserName(wallet.walletAddress, name);
             setNameModal.style.display = 'none';
             if (btnSetName) {
                 btnSetName.textContent = name;

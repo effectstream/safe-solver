@@ -62,7 +62,7 @@ class Contract {
         if (!(typeof(contextOrig_0) === 'object' && contextOrig_0.originalState != undefined && contextOrig_0.transactionContext != undefined)) {
           __compactRuntime.type_error('storeValue',
                                       'argument 1 (as invoked from Typescript)',
-                                      'unshielded-erc20.compact line 9 char 1',
+                                      'midnight-data.compact line 9 char 1',
                                       'CircuitContext',
                                       contextOrig_0)
         }

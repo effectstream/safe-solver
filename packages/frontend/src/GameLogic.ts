@@ -3,11 +3,11 @@ import TWEEN from '@tweenjs/tween.js';
 import { state, setScore, resetState } from './GameState';
 import { Safe } from './Safe';
 import { scene, camera, ambientLight, pointLight, resetSceneLighting } from './Scene';
-import { leaderboard } from './Leaderboard';
-import { getConnectedWallet, localWallet } from './Wallet';
+import { leaderboard } from './EffectStreamLeaderboard';
+import { getConnectedWallet, getLocalWallet } from './EffectStreamWallet';
 import { showCustomAlert } from './Utils';
 import { soundManager } from './SoundManager';
-import { mockService } from './MockService';
+import { effectStreamService } from './EffectStreamService';
 import { particleManager } from './ParticleManager';
 
 export function updateScoreDisplay() {
@@ -139,14 +139,14 @@ export async function cashOut() {
     } else {
         soundManager.play('cashout');
         const wallet = getConnectedWallet();
-         
+        const localWallet = getLocalWallet();
         const address = wallet?.walletAddress || localWallet?.walletAddress;
         
         let accountId: number | undefined;
 
         if (address) {
             try {
-                const info = await mockService.getAddressInfo(address);
+                const info = await effectStreamService.getAddressInfo(address);
                 if (info && info.account_id) {
                     accountId = info.account_id;
                 }
@@ -156,8 +156,8 @@ export async function cashOut() {
         }
         
         if (accountId !== undefined) {
-             // Use the async addScore from leaderboard which calls MockService
-             mockService.submitScore(accountId).then(() => {
+             // Use the async addScore from leaderboard which calls EffectStreamService
+             effectStreamService.submitScore(accountId).then(() => {
                   leaderboard.render();
              });
              showCustomAlert(`Cashed Out! +${state.score.toFixed(2)} Tokens`);
@@ -234,9 +234,10 @@ export async function startLevel(numSafesOverride?: number) {
     // Check if we can continue an ongoing game first
     try {
         const wallet = getConnectedWallet();
+        const localWallet = getLocalWallet();
         const address = wallet?.walletAddress || localWallet?.walletAddress;
         if (address) {
-            const gameState = await mockService.getGameState(address);
+            const gameState = await effectStreamService.getGameState(address);
             if (gameState && gameState.is_ongoing) {
                 console.log("Resuming ongoing game...", gameState);
                 state.level = gameState.round;
@@ -254,9 +255,9 @@ export async function startLevel(numSafesOverride?: number) {
                 
                 // Initial mock service call only for start
                 try {
-                    await mockService.initLevel();
+                    await effectStreamService.initLevel();
                     // Re-fetch state to get safe count if needed, though we default to 3 or random
-                    const newGameState = await mockService.getGameState(address);
+                    const newGameState = await effectStreamService.getGameState(address);
                      if (newGameState && newGameState.safe_count) {
                         numSafes = newGameState.safe_count;
                     }
@@ -450,7 +451,7 @@ export async function handleSafeClick(safe: Safe) {
 
     // Perform check against mock server
     try {
-        const result = await mockService.checkSafe(safe.index);
+        const result = await effectStreamService.checkSafe(safe.index);
         
         soundManager.stop('drill');
         if (result.isBad) {
