@@ -5,9 +5,7 @@ import { sendTransaction } from "@paimaexample/wallets";
 import { showToast } from "./Utils";
 import { accountPayload_ as accountPayload } from "@paimaexample/wallets";
 import { AddressType } from "@paimaexample/wallets";
-
-const BATCHER_URL = "http://localhost:3334";
-const BASE_URL = "http://localhost:9999";
+import { ENV } from "./EffectStreamEngineConfig";
 
 class EffectStreamService {
   private async delay(ms: number): Promise<void> {
@@ -177,7 +175,7 @@ class EffectStreamService {
   async getLeaderboard(): Promise<LeaderboardEntry[]> {
     console.log(`[MockServer] Request: Get Leaderboard`);
     try {
-      const response = await fetch(`${BASE_URL}/api/leaderboard`);
+      const response = await fetch(`${ENV.API_URL}/api/leaderboard`);
       if (!response.ok) {
         console.error("Leaderboard fetch failed");
         return [];
@@ -221,7 +219,7 @@ class EffectStreamService {
   ): Promise<{ balance: number; lastLogin: number; name?: string }> {
     console.log(`[MockServer] Request: Get User Profile for ${walletAddress}`);
     try {
-      const response = await fetch(`${BASE_URL}/api/user/${walletAddress}`);
+      const response = await fetch(`${ENV.API_URL}/api/user/${walletAddress}`);
       if (!response.ok) {
         return { balance: 0, lastLogin: Date.now(), name: undefined };
       }
@@ -239,7 +237,7 @@ class EffectStreamService {
    */
   async getGameState(walletAddress: string): Promise<{ round: number; safe_count: number; is_ongoing: boolean; random_hash: string | null; current_score?: number }> {
     try {
-      const response = await fetch(`${BASE_URL}/api/gamestate/${walletAddress}`);
+      const response = await fetch(`${ENV.API_URL}/api/gamestate/${walletAddress}`);
       if (!response.ok) {
         // Return default
         return { round: 1, safe_count: 3, is_ongoing: false, random_hash: null, current_score: 0 };
@@ -253,7 +251,7 @@ class EffectStreamService {
 
   public async getAddressInfo(address: string): Promise<{ address: string, address_type: number, account_id: number | null } | null> {
     try {
-      const response = await fetch(`${BASE_URL}/api/address/${address}`);
+      const response = await fetch(`${ENV.API_URL}/api/address/${address}`);
       if (!response.ok) return null;
       return await response.json();
     } catch (e) {
@@ -264,7 +262,7 @@ class EffectStreamService {
 
   public async getAccountInfo(id: number): Promise<{ id: number, primary_address: string | null } | null> {
     try {
-      const response = await fetch(`${BASE_URL}/api/account/${id}`);
+      const response = await fetch(`${ENV.API_URL}/api/account/${id}`);
       if (!response.ok) return null;
       return await response.json();
     } catch (e) {
@@ -274,7 +272,7 @@ class EffectStreamService {
 
   public async getAccountAddresses(id: number): Promise<Array<{ address: string, address_type: number, account_id: number }>> {
     try {
-      const response = await fetch(`${BASE_URL}/api/account/${id}/addresses`);
+      const response = await fetch(`${ENV.API_URL}/api/account/${id}/addresses`);
       if (!response.ok) return [];
       return await response.json();
     } catch (e) {
@@ -449,7 +447,7 @@ async function sendMintToBatcher(
     },
     confirmationLevel,
   };
-  const response = await fetch(`${BATCHER_URL}/send-input`, {
+  const response = await fetch(`${ENV.BATCHER_URL}/send-input`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
