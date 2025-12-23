@@ -15,6 +15,7 @@ import {
   incrementGamesWon,
   advanceGameRound
 } from "@safe-solver/database";
+import { WalletAddress, AddressType } from "@paimaexample/utils";
 
 const stm = new PaimaSTM<typeof grammar, any>(grammar);
 
@@ -33,34 +34,42 @@ function calculatePrize(numSafes: number, round: number): number {
 //     .join("")
 //     .trim();
 
+function* getAccountId(address?: WalletAddress, _?: AddressType) {
+  if (!address) {
+    console.log(`[getAccountId] No address provided`);
+    return null;
+  }
+  const [addrInfo] = yield* World.resolve(getAddressByAddress, { address });
+  if (!addrInfo) {
+    console.log(`[getAccount] No address for ${address}`);
+    return null;
+  }
+  if (!addrInfo.account_id) {
+    console.log(`[getAccountId] No account for ${address}`);
+    return null;
+  }
+
+  return addrInfo.account_id;
+}
+
 stm.addStateTransition("setName", function* (data) {
   const { name } = data.parsedInput;
-  const user = data.signerAddress || "";
-  
-  const [addrInfo] = yield* World.resolve(getAddressByAddress, { address: user });
-  if (!addrInfo || !addrInfo.account_id) {
-    console.log(`[setName] No account for ${user}`);
+  if (!name || name.length < 3) {
+    console.log(`[setName] No name provided`);
     return;
   }
-  const accountId = addrInfo.account_id;
-
+  const accountId = yield* getAccountId(data.signerAddress, data.signerAddressType);
+  if (accountId === null) return;
   console.log(`🎉 [setName] Account ${accountId} -> ${name}`);
   yield* World.resolve(setAccountName, { account_id: accountId, name });
 });
 
 stm.addStateTransition("initLevel", function* (data) {
-  const user = data.signerAddress || "";
-
-  const [addrInfo] = yield* World.resolve(getAddressByAddress, { address: user });
-  if (!addrInfo || !addrInfo.account_id) {
-    console.log(`[initLevel] No account for ${user}`);
-    return;
-  }
-  const accountId = addrInfo.account_id;
+  const accountId = yield* getAccountId(data.signerAddress, data.signerAddressType);
+  if (accountId === null) return;
 
   // Check if game already ongoing
-  const results = yield* World.resolve(getGameState, { account_id: accountId });
-  const gameState = (results as any)[0];
+  const [gameState] = yield* World.resolve(getGameState, { account_id: accountId });
   
   if (gameState && gameState.is_ongoing) {
     console.log(`[initLevel] Game already ongoing for Account ${accountId}. Ignoring.`);
@@ -69,7 +78,6 @@ stm.addStateTransition("initLevel", function* (data) {
 
   // Ensure user balance record exists
   yield* World.resolve(ensureAccountBalance, { account_id: accountId });
-
 
   // Generate random hash using provided generator
   // Assuming Prando-like interface
@@ -92,34 +100,25 @@ stm.addStateTransition("initLevel", function* (data) {
 
 stm.addStateTransition("checkSafe", function* (data) {
   const { safeIndex } = data.parsedInput;
-  const user = data.signerAddress || "";
-
-  const [addrInfo] = yield* World.resolve(getAddressByAddress, { address: user });
-  if (!addrInfo || !addrInfo.account_id) {
-    console.log(`[checkSafe] No account for ${user}`);
-    return;
-  }
-  const accountId = addrInfo.account_id;
-
-  const results = yield* World.resolve(getGameState, { account_id: accountId });
-  const gameState = (results as any)[0];
-  
-  if (!gameState || !gameState.is_ongoing) {
-    console.log(`[checkSafe] Game not ongoing for Account ${accountId}`);
+  const isSafeIndexOk = safeIndex >= 0 && safeIndex < 7;
+  if (!isSafeIndexOk) {
+    console.log(`[checkSafe] Invalid safe index: ${safeIndex}`);
     return;
   }
 
-  // Use random generator to determine bad safe
-  const safeCount = gameState.safe_count!;
+  const accountId = yield* getAccountId(data.signerAddress, data.signerAddressType);
+  if (accountId === null) return;
+
+  const [gameState] = yield* World.resolve(getGameState, { account_id: accountId });
+  if (!gameState || !gameState.is_ongoing) return;
+
   // next(min, max) is [min, max). We want integer index from 0 to safeCount-1.
   // There is a chance all are good!
   // .next returns inclusive of min and max.
-  const badSafeIndex = Math.floor(data.randomGenerator.next(0, safeCount));
-
-  const round = gameState.round ?? 1;
+  const badSafeIndex = Math.floor(data.randomGenerator.next(0, gameState.safe_count!));
 
   const isBad = safeIndex === badSafeIndex;
-  const prize = isBad ? 0 : calculatePrize(safeCount, round);
+  const prize = isBad ? 0 : calculatePrize(gameState.safe_count!, gameState.round!);
 
   console.log(`🎉 [checkSafe] Account: ${accountId}, Index: ${safeIndex}, IsBad: ${isBad}, Prize: ${prize}`);
 
@@ -141,21 +140,19 @@ stm.addStateTransition("checkSafe", function* (data) {
 });
 
 stm.addStateTransition("submitScore", function* (data) {
-  const { accountId: inputAccountId } = data.parsedInput;
-  const user = data.signerAddress || "";
-  console.log(`🎉 [submitScore] ${data.signerAddress} - ${data.parsedInput.accountId}`);
+  const accountId = yield* getAccountId(data.signerAddress, data.signerAddressType);
+  if (accountId === null) return;
 
-  const [addrInfo] = yield* World.resolve(getAddressByAddress, { address: user });
-  if (!addrInfo || !addrInfo.account_id) {
-    console.log(`[submitScore] No account for ${user}`);
+  if (data.parsedInput.accountId !== accountId) {
+    console.log(`[submitScore] Account ID mismatch: ${data.parsedInput.accountId} !== ${accountId}`);
     return;
   }
-  const accountId = addrInfo.account_id;
   
   // Get current game score to add to global
-  const results = yield* World.resolve(getGameState, { account_id: accountId });
-  const gameState = (results as any)[0];
-  const currentScore = gameState?.current_score ?? 0;
+  const [gameState] = yield* World.resolve(getGameState, { account_id: accountId });
+  if (!gameState) return;
+
+  const currentScore = gameState.current_score!;
 
   console.log(`🎉 [submitScore] Account: ${accountId}, Adding Score: ${currentScore}`);
   

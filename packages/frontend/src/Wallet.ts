@@ -418,6 +418,8 @@ export function initWalletUI() {
       console.error(err);
       showCustomAlert('Login failed: ' + err.message);
       connectWalletBtn.textContent = 'CONNECT WALLET';
+      // Disconnect wallet and clear variables
+      connectedWallet = null;
     }
   }
 }
