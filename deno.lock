@@ -17,6 +17,7 @@
     "jsr:@paimaexample/coroutine@0.3.124": "0.3.124",
     "jsr:@paimaexample/coroutine@~0.3.124": "0.3.124",
     "jsr:@paimaexample/coroutine@~0.3.125": "0.3.125",
+    "jsr:@paimaexample/crypto@0.3.124": "0.3.124",
     "jsr:@paimaexample/crypto@~0.3.124": "0.3.125",
     "jsr:@paimaexample/crypto@~0.3.125": "0.3.125",
     "jsr:@paimaexample/db@0.3.124": "0.3.124",
@@ -315,6 +316,20 @@
         "npm:@coderspirit/nominal",
         "npm:@pgtyped/parser",
         "npm:@pgtyped/runtime@2.4.2"
+      ]
+    },
+    "@paimaexample/crypto@0.3.124": {
+      "integrity": "654d847853dccf3662a1708d5811412139509218fc6b85ef6d8d8752e9fd653a",
+      "dependencies": [
+        "jsr:@paimaexample/utils@~0.3.124",
+        "npm:@cardano-foundation/cardano-verify-datasignature",
+        "npm:@polkadot/util",
+        "npm:@polkadot/util-crypto",
+        "npm:@sinclair/typebox@0.34.41",
+        "npm:algosdk",
+        "npm:mina-signer",
+        "npm:viem@2.37.3",
+        "npm:web3-utils"
       ]
     },
     "@paimaexample/crypto@0.3.125": {
@@ -7387,6 +7402,7 @@
           "jsr:@paimaexample/batcher@0.3.125",
           "jsr:@paimaexample/concise@0.3.124",
           "jsr:@paimaexample/coroutine@0.3.124",
+          "jsr:@paimaexample/crypto@0.3.124",
           "jsr:@paimaexample/utils@0.3.124",
           "jsr:@std/path@^1.1.3",
           "npm:@midnight-ntwrk/compact-runtime@0.9.0",

@@ -4,36 +4,36 @@ import { EngineConfig } from "./EngineConfig";
 import { sendTransaction } from "@paimaexample/wallets";
 import { showToast } from "./Utils";
 import { accountPayload_ as accountPayload } from "@paimaexample/wallets";
+import { AddressType } from "@paimaexample/wallets";
 
-
-
+const BATCHER_URL = "http://localhost:3334";
 const BASE_URL = "http://localhost:9999";
 
 async function sendTransactionWrapper(wallet: any, data: any, config: any, waitType: any) {
-    sendMintToBatcher(JSON.stringify(data)).then((status) => {
-        console.log("Mint sent to batcher successfully", status);
-    }).catch((error) => {
-        console.error("Error sending mint to batcher", error);
-    });
+  sendMintToBatcher(JSON.stringify(data)).then((status) => {
+    console.log("Mint sent to batcher successfully", status);
+  }).catch((error) => {
+    console.error("Error sending mint to batcher", error);
+  });
 
-    const toast = showToast("Sending Signed Message", 0); // 0 = don't auto close
+  const toast = showToast("Sending Signed Message", 0); // 0 = don't auto close
 
-    const t1 = setTimeout(() => {
-        toast.updateMessage("Writing in Blockchain");
-    }, 1000);
+  const t1 = setTimeout(() => {
+    toast.updateMessage("Writing in Blockchain");
+  }, 1000);
 
-    const t2 = setTimeout(() => {
-        toast.updateMessage("Waiting for Update");
-    }, 2000);
+  const t2 = setTimeout(() => {
+    toast.updateMessage("Waiting for Update");
+  }, 2000);
 
-    try {
-        const result = await sendTransaction(wallet, data, config, waitType);
-        return result;
-    } finally {
-        clearTimeout(t1);
-        clearTimeout(t2);
-        toast.close();
-    }
+  try {
+    const result = await sendTransaction(wallet, data, config, waitType);
+    return result;
+  } finally {
+    clearTimeout(t1);
+    clearTimeout(t2);
+    toast.close();
+  }
 }
 
 export interface SafeResult {
@@ -52,33 +52,33 @@ class MockService {
    */
   private async ensureLocalAccount(): Promise<void> {
     if (!localWallet) {
-        throw new Error("Local wallet not found");
+      throw new Error("Local wallet not found");
     }
 
     try {
       const walletAddress: { address: string, type: number } = await localWallet.provider.getAddress();
       const info = await this.getAddressInfo(walletAddress.address);
-      
+
       if (info && info.account_id !== null) {
-          return; // Already has account
+        return; // Already has account
       }
 
       console.log("[MockServer] Creating account for local wallet...");
       const createAccData = await accountPayload.createAccount();
       await sendTransactionWrapper(
-          localWallet,
-          createAccData,
-          EngineConfig,
-          "wait-effectstream-processed"
+        localWallet,
+        createAccData,
+        EngineConfig,
+        "wait-effectstream-processed"
       );
 
       // Wait for account creation
       let retries = 10;
       while (retries > 0) {
-          await this.delay(1000);
-          const newInfo = await this.getAddressInfo(walletAddress.address);
-          if (newInfo && newInfo.account_id !== null) break;
-          retries--;
+        await this.delay(1000);
+        const newInfo = await this.getAddressInfo(walletAddress.address);
+        if (newInfo && newInfo.account_id !== null) break;
+        retries--;
       }
     } catch (e) {
       console.error("Failed to ensure local account", e);
@@ -117,7 +117,7 @@ class MockService {
    */
   async checkSafe(safeIndex: number): Promise<SafeResult> {
     const walletAddress = (await localWallet.provider.getAddress()).address;
-    
+
     // Get state BEFORE transaction
     const beforeState = await this.getGameState(walletAddress);
 
@@ -130,34 +130,33 @@ class MockService {
     );
 
     console.log(`[MockServer] Request: Check safe ${safeIndex}`);
-    
+
     // Poll for state change
     let retries = 5;
     let afterState = beforeState;
     while (retries > 0) {
-        await this.delay(500);
-        afterState = await this.getGameState(walletAddress);
-        // Check if round changed or ongoing status changed
-        if (afterState.round !== beforeState.round || afterState.is_ongoing !== beforeState.is_ongoing) {
-            break;
-        }
-        retries--;
+      await this.delay(500);
+      afterState = await this.getGameState(walletAddress);
+      // Check if round changed or ongoing status changed
+      if (afterState.round !== beforeState.round || afterState.is_ongoing !== beforeState.is_ongoing) {
+        break;
+      }
+      retries--;
     }
 
-    const isBad = !afterState.is_ongoing && afterState.round === beforeState.round; 
+    const isBad = !afterState.is_ongoing && afterState.round === beforeState.round;
     // If round same and not ongoing -> Lost (because if won round would advance, or if cash out... but this is checkSafe)
     // Actually if we lose, round stays same? Or resets? 
     // Backend: if bad, incrementGamesLost, is_ongoing = false. Round stays same.
     // If good: increment round, is_ongoing = true.
 
     const prize = isBad ? 0 : this.getPrize(beforeState.safe_count, beforeState.round);
-    
+
     console.log(
-      `[MockServer] Response: Safe ${safeIndex} is ${
-        isBad ? "BAD" : "GOOD"
+      `[MockServer] Response: Safe ${safeIndex} is ${isBad ? "BAD" : "GOOD"
       }. Prize: ${prize}`
     );
-    
+
     return {
       isBad,
       prize,
@@ -173,8 +172,8 @@ class MockService {
     try {
       const response = await fetch(`${BASE_URL}/api/leaderboard`);
       if (!response.ok) {
-          console.error("Leaderboard fetch failed");
-          return [];
+        console.error("Leaderboard fetch failed");
+        return [];
       }
       const data = await response.json();
       console.log(`[MockServer] Response: Sending ${data.length} leaderboard entries`);
@@ -211,34 +210,34 @@ class MockService {
   ): Promise<{ balance: number; lastLogin: number; name?: string }> {
     console.log(`[MockServer] Request: Get User Profile for ${walletAddress}`);
     try {
-        const response = await fetch(`${BASE_URL}/api/user/${walletAddress}`);
-        if (!response.ok) {
-            return { balance: 0, lastLogin: Date.now(), name: undefined };
-        }
-        const data = await response.json();
-        console.log(`[MockServer] Response: User ${walletAddress} has ${data.balance} tokens.`);
-        return data;
-    } catch (e) {
-        console.error("Error fetching profile", e);
+      const response = await fetch(`${BASE_URL}/api/user/${walletAddress}`);
+      if (!response.ok) {
         return { balance: 0, lastLogin: Date.now(), name: undefined };
+      }
+      const data = await response.json();
+      console.log(`[MockServer] Response: User ${walletAddress} has ${data.balance} tokens.`);
+      return data;
+    } catch (e) {
+      console.error("Error fetching profile", e);
+      return { balance: 0, lastLogin: Date.now(), name: undefined };
     }
   }
-  
+
   /**
    * Fetches the current game state.
    */
   async getGameState(walletAddress: string): Promise<{ round: number; safe_count: number; is_ongoing: boolean; random_hash: string | null; current_score?: number }> {
-      try {
-          const response = await fetch(`${BASE_URL}/api/gamestate/${walletAddress}`);
-          if (!response.ok) {
-             // Return default
-             return { round: 1, safe_count: 3, is_ongoing: false, random_hash: null, current_score: 0 };
-          }
-          return await response.json();
-      } catch (e) {
-          console.error("Error fetching game state", e);
-          return { round: 1, safe_count: 3, is_ongoing: false, random_hash: null, current_score: 0 };
+    try {
+      const response = await fetch(`${BASE_URL}/api/gamestate/${walletAddress}`);
+      if (!response.ok) {
+        // Return default
+        return { round: 1, safe_count: 3, is_ongoing: false, random_hash: null, current_score: 0 };
       }
+      return await response.json();
+    } catch (e) {
+      console.error("Error fetching game state", e);
+      return { round: 1, safe_count: 3, is_ongoing: false, random_hash: null, current_score: 0 };
+    }
   }
 
   public async getAddressInfo(address: string): Promise<{ address: string, address_type: number, account_id: number | null } | null> {
@@ -359,7 +358,7 @@ class MockService {
     if ((!currentLocalId) && realHasAccount) {
       const realId = realInfo!.account_id!;
       const accountInfo = await this.getAccountInfo(realId);
-      
+
       if (accountInfo && accountInfo.primary_address === realAddress) {
         console.log("[MockServer] Case 4: Linking Local to Real (Real stays Primary)");
         const conciseData = await accountPayload.linkAddress(
@@ -390,7 +389,7 @@ class MockService {
    */
   async setUserName(walletAddress: string, name: string): Promise<boolean> {
     await this.ensureLocalAccount();
-    
+
     // We send transaction. Name is updated on chain.
     const conciseData = ["setName", name];
     await sendTransactionWrapper(
@@ -409,39 +408,28 @@ class MockService {
   }
 }
 
-// IMPORTANT
-// These types are used in the on-chain messages.
-// Do not change or reuse the numeric values.
-export enum AddressType {
-    NONE = -1,
-    EVM = 0,
-    CARDANO = 1,
-    SUBSTRATE = 2,
-    ALGORAND = 3,
-    MINA = 4,
-    MIDNIGHT = 5,
-    AVAIL = 6,
-    POLKADOT = 7,
-  }
-// import { AddressType } from "@paimaexample/utils";
-const BATCHER_URL = "http://localhost:3334";
-export async function sendMintToBatcher(
+async function sendMintToBatcher(
   _input: string,
   confirmationLevel: string = "no-wait",
 ): Promise<number> {
-    const input = JSON.stringify({
-        circuit: "storeValue",
-        args: [_input],
-      });
+  const input = JSON.stringify({
+    circuit: "storeValue",
+    args: [_input],
+  });
+  const target = "midnightAdapter_unshielded_erc20";
+  const address = localWallet.provider.getAddress().address;
+  const addressType = localWallet.provider.getAddress().type;
+  const timestamp = Date.now();
   const body = {
     data: {
-      target: "midnightAdapter_unshielded_erc20",
-      address: "placeholderaddress",
-      addressType: AddressType.MIDNIGHT,
+      target,
+      address,
+      addressType,
       input,
-      timestamp: Date.now(),
+      timestamp,
+      signature: await localWallet.provider.signMessage(`${target}:${address}:${addressType}:${timestamp}`),
     },
-    confirmationLevel: confirmationLevel,
+    confirmationLevel,
   };
   const response = await fetch(`${BATCHER_URL}/send-input`, {
     method: "POST",
