@@ -9,7 +9,7 @@ NetworkId.Undeployed;
 
 import { init, start } from "@paimaexample/runtime";
 import { main, suspend } from "effection";
-import { localhostConfig } from "@safe-solver/data-types/localhostConfig";
+import { config } from "@safe-solver/data-types/config-dev";
 import {
   type SyncProtocolWithNetwork,
   toSyncProtocolWithNetwork,
@@ -24,11 +24,11 @@ main(function* () {
   yield* init();
   console.log("Starting Paima Engine Node");
 
-  yield* withEffectstreamStaticConfig(localhostConfig, function* () {
+  yield* withEffectstreamStaticConfig(config, function* () {
     yield* start({
       appName: "safe-solver",
-      appVersion: "0.3.21",
-      syncInfo: toSyncProtocolWithNetwork(localhostConfig),
+      appVersion: "0.3.126",
+      syncInfo: toSyncProtocolWithNetwork(config),
       gameStateTransitions,
       migrations: migrationTable,
       apiRouter,

@@ -31,6 +31,10 @@ const nodeTasks = createNodeTasks({
   fs,
 });
 
+const evmMainPort = 8545;
+const evmMainChainId = 31337;
+const evmMainInterval = 1000;
+
 // Create unified config with default networks
 const config: HardhatUserConfig = createHardhatConfig({
   sourcesDir: `${__dirname}/src/contracts`,
@@ -39,6 +43,33 @@ const config: HardhatUserConfig = createHardhatConfig({
   // Default networks (evmMain, evmMainHttp, evmParallel, evmParallelHttp) are used automatically
   tasks: nodeTasks,
   solidityVersion: "0.8.30",
+  networks: {
+    // This is needed to set once, to deploy contracts in testnet:
+    // deno task -f @safe-solver/evm-contracts deploy:testnet
+    // deno task -f @safe-solver/evm-contracts build:mod
+    arbitrumSepolia: {
+      type: "http",
+      chainId: 421614,
+      url: "https://arb-sepolia.g.alchemy.com/v2/API-KEY",
+      accounts: ["0000000000000000000000000000000000000000000000000000000000000000"], // Private key with no funds to deploy contracts.
+    },
+    evmMain: {
+      type: "edr-simulated",
+      chainType: "l1",
+      chainId: evmMainChainId,
+      mining: {
+        auto: true,
+        interval: evmMainInterval, // Arbitrum (250ms)
+      },
+      allowBlocksWithSameTimestamp: true,
+    },
+    // This is a helper network to allow to hardhat/ignition to connect to the network.
+    evmMainHttp: {
+      type: "http",
+      chainType: "l1",
+      url: `http://0.0.0.0:${evmMainPort}`,
+    },
+  }
 });
 
 export default config;

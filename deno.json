@@ -8,12 +8,13 @@
     "build:evm": "deno task -f @safe-solver/evm-contracts build:mod",
     "build:midnight": "deno task -r compact",
     "dev": "deno task -f @safe-solver/node dev",
+    "testnet": "deno task -f @safe-solver/node testnet",
     "check": "deno task -f @safe-solver/node check"
   },
   "imports": {
-    "@paimaexample/tui": "jsr:@paimaexample/tui@0.3.124",
-    "@paimaexample/midnight-contracts": "jsr:@paimaexample/midnight-contracts@0.3.124",
-    "@paimaexample/evm-contracts": "jsr:@paimaexample/evm-contracts@0.3.124",
+    "@paimaexample/tui": "jsr:@paimaexample/tui@0.3.126",
+    "@paimaexample/midnight-contracts": "jsr:@paimaexample/midnight-contracts@0.3.126",
+    "@paimaexample/evm-contracts": "jsr:@paimaexample/evm-contracts@0.3.126",
     "@std/path": "jsr:@std/path@^1.1.3"
   },
   "lint": {

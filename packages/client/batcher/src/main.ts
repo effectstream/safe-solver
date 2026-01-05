@@ -5,7 +5,7 @@ import * as midnightAdapters from "./adapter-midnight.ts";
 import { effectstreaml2Adapter } from "./adapter-effectstreaml2.ts";
 
 const batcher = createNewBatcher(config, storage);
-const batchIntervalMs = 1000;
+const batchIntervalMs = 100;
 
 batcher
   .addBlockchainAdapter("effectstreaml2", effectstreaml2Adapter, {

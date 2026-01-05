@@ -7,7 +7,7 @@ import {
   ConfigNetworkType,
   ConfigSyncProtocolType,
 } from "@paimaexample/config";
-import { hardhat } from "viem/chains";
+import { arbitrumSepolia } from "viem/chains";
 import { getConnection } from "@paimaexample/db";
 
 import * as builtin from "@paimaexample/sm/builtin";
@@ -20,8 +20,33 @@ import * as builtin from "@paimaexample/sm/builtin";
 
 const mainSyncProtocolName = "mainNtp";
 let launchStartTime: number | undefined;
+let arbSepoliaTip: number = 230666729;
+
+ // IMPORTANT: For testing purposes. Setting it to true, will 
+ // use a new tip on each restart, making the db inconsistent.
+const USE_TESTING_TIP = true;
+const EVM_RPC_URL = Deno ? Deno.env.get("ARBITRUM_SEPOLIA_RPC") as string : "";
+
 const dbConn = getConnection();
 try {
+  if (Deno && USE_TESTING_TIP) {
+    /* Get the latest block number from the Arbitrum Sepolia chain */
+    const response = await fetch(EVM_RPC_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'eth_blockNumber', // Standard RPC method to get the latest block number
+        params: []
+      }),
+    });
+    const data = await response.json();
+    arbSepoliaTip = parseInt(data.result, 16);
+  }
+
   // TODO Update to effectstream.sync_protocol_pagination
   const result = await dbConn.query(`
     SELECT * FROM effectstream.sync_protocol_pagination 
@@ -39,7 +64,7 @@ try {
   // Do nothing, the DB has not been initialized yet.
 }
 
-export const localhostConfig = new ConfigBuilder()
+export const config = new ConfigBuilder()
   .setNamespace((builder) => builder.setSecurityNamespace("[scope]"))
   .buildNetworks((builder) =>
     builder
@@ -50,7 +75,12 @@ export const localhostConfig = new ConfigBuilder()
         blockTimeMS: 1000,
       })
       .addViemNetwork({
-        ...hardhat,
+        ...arbitrumSepolia,
+        rpcUrls: {
+          default: {
+            http: [EVM_RPC_URL],
+          },
+        },
         name: "evmMain",
       })
       .addNetwork({
@@ -81,8 +111,9 @@ export const localhostConfig = new ConfigBuilder()
           name: "mainEvmRPC",
           type: ConfigSyncProtocolType.EVM_RPC_PARALLEL,
           chainUri: network.rpcUrls.default.http[0],
-          startBlockHeight: 1,
-          pollingInterval: 500,
+          startBlockHeight: arbSepoliaTip,
+          pollingInterval: 1000, // poll quickly to react fast
+          stepSize: 9,
           confirmationDepth: 0,
         })
       )
@@ -108,7 +139,7 @@ export const localhostConfig = new ConfigBuilder()
           type: builtin.PrimitiveTypeEVMPaimaL2,
           startBlockHeight: 0,
           contractAddress:
-            contractAddressesEvmMain().chain31337[
+            contractAddressesEvmMain().chain421614[
               "effectstreaml2Module#effectstreaml2"
             ],
           stateMachinePrefix: `event_evm_effectstreaml2`,
