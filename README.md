@@ -1,7 +1,8 @@
 # Safe Solver Quick Start
 
-<img width="100%" alt="safe-solver" src="https://github.com/user-attachments/assets/386b3b6e-4d97-4e89-a4c8-75036f14f80a" />
 
+https://github.com/user-attachments/assets/ff52646c-20f1-41b5-b421-34b49d3f1a79
+<!-- <img width="100%" alt="safe-solver" src="https://github.com/user-attachments/assets/386b3b6e-4d97-4e89-a4c8-75036f14f80a" /> -->
 
 Safe Solver is a typescript *on-chain* turn chance based game .  
 And serves as a template for building on-chain games.
