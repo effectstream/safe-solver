@@ -35,9 +35,9 @@ class Leaderboard {
         }
     }
 
-    async addScore(name: string, score: number) {
+    async addScore(accountId: number) {
         try {
-            this.entries = await effectStreamService.submitScore(name, score);
+            this.entries = await effectStreamService.submitScore(accountId);
             this.render();
         } catch (error) {
             console.error("Failed to submit score", error);

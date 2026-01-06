@@ -40,7 +40,6 @@ const config: HardhatUserConfig = createHardhatConfig({
   sourcesDir: `${__dirname}/src/contracts`,
   artifactsDir: `${__dirname}/build/artifacts/hardhat`,
   cacheDir: `${__dirname}/build/cache/hardhat`,
-  // Default networks (evmMain, evmMainHttp, evmParallel, evmParallelHttp) are used automatically
   tasks: nodeTasks,
   solidityVersion: "0.8.30",
   networks: {
@@ -50,9 +49,10 @@ const config: HardhatUserConfig = createHardhatConfig({
     arbitrumSepolia: {
       type: "http",
       chainId: 421614,
-      url: "https://arb-sepolia.g.alchemy.com/v2/API-KEY",
-      accounts: ["0000000000000000000000000000000000000000000000000000000000000000"], // Private key with no funds to deploy contracts.
+      url: "https://arb-sepolia.g.alchemy.com/v2/API-KEY", // Replace with your RPC URL
+      accounts: ["0000000000000000000000000000000000000000000000000000000000000000"], // Private key with funds to deploy contracts.
     },
+    // These are development networks.
     evmMain: {
       type: "edr-simulated",
       chainType: "l1",

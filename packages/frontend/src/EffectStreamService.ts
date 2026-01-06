@@ -4,7 +4,7 @@ import { EngineConfig } from "./EffectStreamEngineConfig";
 import { sendTransaction } from "@paimaexample/wallets";
 import { showToast } from "./Utils";
 import { accountPayload_ as accountPayload } from "@paimaexample/wallets";
-import { AddressType } from "@paimaexample/wallets";
+// import { AddressType } from "@paimaexample/wallets";
 import { ENV } from "./EffectStreamEngineConfig";
 
 class EffectStreamService {

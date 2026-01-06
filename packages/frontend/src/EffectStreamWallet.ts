@@ -1,6 +1,6 @@
 import {
   allInjectedWallets,
-  PaimaEngineConfig,
+  // PaimaEngineConfig,
   walletLogin,
   WalletMode,
   WalletNameMap,
@@ -8,13 +8,22 @@ import {
 import { hardhat } from "viem/chains";
 import { LocalWallet } from "@thirdweb-dev/wallets";
 import { getChainByChainIdAsync } from "@thirdweb-dev/chains";
-import { showCustomAlert } from "./Utils";
+// import { showCustomAlert } from "./Utils";
 import { effectStreamService } from "./EffectStreamService";
-import { state } from "./GameState";
-import { updateTokenDisplay } from "./GameLogic";
+// import { state } from "./GameState";
+// import { updateTokenDisplay } from "./GameLogic";
 import { EngineConfig } from "./EffectStreamEngineConfig";
 
-interface WalletOption {
+interface IWallet {
+  walletAddress: string;
+  provider: {
+    getAddress: () => { address: string, type: number },
+    signMessage: (message: string) => Promise<string>
+  };
+  mode?: number;
+}
+
+export interface WalletOption {
   name: string;
   mode: number;
   preference: { name: string };
@@ -24,14 +33,8 @@ interface WalletOption {
   checkChainId?: boolean;
 }
 
-let localWallet = null;
-
-let connectedWallet: {
-  provider: {
-    getAddress: () => Promise<{ address: string, type: number }>,
-    signMessage: (message: string) => Promise<string>
-  },
-} | null = null;
+let localWallet: IWallet | null = null;
+let connectedWallet: IWallet | null = null;
 
 export function getConnectedWallet() {
   return connectedWallet;
@@ -68,9 +71,13 @@ export async function initializeLocalWallet() {
       },
     };
 
-    const walletLoginResult = await walletLogin(loginOptions);
-    localWallet = walletLoginResult.result;
-    return localWallet;
+    const walletLoginResult = await walletLogin(loginOptions as any);
+    if (walletLoginResult.success) {
+      localWallet = walletLoginResult.result as IWallet;
+      return localWallet;
+    } else {
+      throw new Error(walletLoginResult.errorMessage || '');
+    }
   } catch (e) {
     console.error("Failed to initialize local wallet", e);
     return null;
@@ -142,7 +149,7 @@ export async function login(walletOption: WalletOption) {
 
   if (localWallet && connectedWallet.walletAddress) {
     console.log(`Associating Local Wallet ${localWallet.walletAddress} with Real Wallet ${connectedWallet.walletAddress}`);
-    await effectStreamService.connectWallets(localWallet, connectedWallet);
+    await effectStreamService.connectWallets(localWallet as any, connectedWallet as any);
   }
 
   return connectedWallet;

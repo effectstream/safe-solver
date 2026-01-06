@@ -1,13 +1,6 @@
-import {
-    allInjectedWallets,
-    PaimaEngineConfig,
-    walletLogin,
-    WalletMode,
-    WalletNameMap,
-  } from "@paimaexample/wallets";
-  import { showCustomAlert } from "./Utils";
-  import { effectStreamService } from "./EffectStreamService";
-  import { getConnectedWallet, getLocalWallet, initializeLocalWallet } from "./EffectStreamWallet";
+import { showCustomAlert } from "./Utils";
+import { effectStreamService } from "./EffectStreamService";
+import { getConnectedWallet, getLocalWallet, initializeLocalWallet, WalletOption } from "./EffectStreamWallet";
 import { getAvailableWallets } from "./EffectStreamWallet";
 import { login } from "./EffectStreamWallet";
 import { state } from "./GameState";
@@ -295,7 +288,7 @@ export function initWalletUI() {
             showCustomAlert('Login failed: ' + err.message);
             connectWalletBtn.textContent = 'CONNECT WALLET';
             // Disconnect wallet and clear variables
-            connectedWallet = null;
+            // connectedWallet = null;
         }
     }
 }

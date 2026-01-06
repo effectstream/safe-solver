@@ -26,7 +26,8 @@ initializeLocalWallet().then(async (wallet) => {
     if (wallet && wallet.walletAddress) {
         // Fetch profile for local wallet on startup
         try {
-            const profile = await effectStreamService.getUserProfile(wallet.walletAddress);
+            // const profile = 
+            await effectStreamService.getUserProfile(wallet.walletAddress);
             // Tokens not used anymore for starting game
             updateTokenDisplay();
 

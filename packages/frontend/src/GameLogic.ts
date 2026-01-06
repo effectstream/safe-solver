@@ -116,7 +116,7 @@ export async function startGame(isDemo: boolean = false) {
     const info = document.getElementById('info');
     const scoreEl = document.getElementById('score');
     const levelEl = document.getElementById('level');
-    const cashOutBtn = document.getElementById('btn-cash-out');
+    // const cashOutBtn = document.getElementById('btn-cash-out');
     const multBadge = document.getElementById('multiplier-badge');
 
     if (mainScreen) {

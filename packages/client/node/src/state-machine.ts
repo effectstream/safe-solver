@@ -13,7 +13,8 @@ import {
   getAddressByAddress,
   incrementGamesLost,
   incrementGamesWon,
-  advanceGameRound
+  advanceGameRound,
+  getAccountProfile
 } from "@safe-solver/database";
 import { WalletAddress, AddressType } from "@paimaexample/utils";
 
@@ -116,12 +117,18 @@ stm.addStateTransition("checkSafe", function* (data) {
   const [gameState] = yield* World.resolve(getGameState, { account_id: accountId });
   if (!gameState || !gameState.is_ongoing) return;
 
+  const [accountProfile] = yield* World.resolve(getAccountProfile, { account_id: accountId });
+  if (!accountProfile) return;
+
   // next(min, max) is [min, max). We want integer index from 0 to safeCount-1.
   // There is a chance all are good!
   // .next returns inclusive of min and max.
+
   const badSafeIndex = Math.floor(data.randomGenerator.next(0, gameState.safe_count!));
 
-  const isBad = safeIndex === badSafeIndex;
+  // Make first safe always good, so they can play a before losing for the first time.
+  const isNewAccount = !(accountProfile.balance) || accountProfile.balance < 50;
+  const isBad = isNewAccount ? false : safeIndex === badSafeIndex;
   const prize = isBad ? 0 : calculatePrize(gameState.safe_count!, gameState.round!);
 
   console.log(`🎉 [checkSafe] Account: ${accountId}, Index: ${safeIndex}, IsBad: ${isBad}, Prize: ${prize}`);

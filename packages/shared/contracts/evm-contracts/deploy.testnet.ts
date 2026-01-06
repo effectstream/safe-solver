@@ -16,33 +16,16 @@ type Deployment = {
 // This is the list of contracts to deploy.
 // Add or remove contracts as needed.
 const myDeployments: Deployment[] = [
- // Example Erc20
- /* 
-  * {
-  *   module: Erc20DevModule,
-  *   network: "evmMainHttp",
-  * },
-  */
-
-  // Example PaimaL2 
- /* 
-  * {
-  *   module: PaimaL2ContractModule,
-  *   network: "evmMainHttp",
-  *   parameters: {
-  *     PaimaL2ContractModule: {
-  *       owner: "0xEFfE522D441d971dDC7153439a7d10235Ae6301f",
-  *       fee: 0,
-  *     },
-  *   },
-  * },
-  */
-  
-  // [CUSTOM-CODE-1]
   {
-                module: effectstreaml2Module,
-                network: "arbitrumSepolia",
-            }
+    module: effectstreaml2Module,
+    network: "arbitrumSepolia",
+    parameters: {
+      effectstreaml2Module: {
+        owner: "0x0000000000000000000000000000000000000000", // Contract owner address
+        fee: 0, // Contract fee
+      },
+    },
+  },
 ] as const;
 
 /**
@@ -55,12 +38,14 @@ export async function deploy(): Promise<void> {
     const network = await hre.network.connect(deployment.network);
     const result = await (network as any).ignition.deploy(
       deployment.module,
-      deployment.parameters ? { parameters: deployment.parameters } : undefined,
+      deployment.parameters ? { parameters: deployment.parameters } : undefined
     );
     messages.push(
-      `${deployment.module.id.substring(0, 16).padEnd(16)} @ ${
-        deployment.network.substring(0, 16).padEnd(16)
-      } deployed to ${result.contract.address}`,
+      `${deployment.module.id
+        .substring(0, 16)
+        .padEnd(16)} @ ${deployment.network
+        .substring(0, 16)
+        .padEnd(16)} deployed to ${result.contract.address}`
     );
   }
   console.log("Deployed contracts:\n", messages.join("\n"));

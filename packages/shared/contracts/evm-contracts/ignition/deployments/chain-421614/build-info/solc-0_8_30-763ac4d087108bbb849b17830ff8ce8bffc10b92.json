@@ -1,6 +1,6 @@
 {
   "_format": "hh3-sol-build-info-1",
-  "id": "solc-0_8_30-36f7b811861fdf81e6be7b3b36cdb0995a44589a",
+  "id": "solc-0_8_30-763ac4d087108bbb849b17830ff8ce8bffc10b92",
   "solcVersion": "0.8.30",
   "solcLongVersion": "0.8.30+commit.73712a01",
   "userSourceNameMap": {
@@ -40,7 +40,7 @@
         "content": "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.20;\n\nimport \"@openzeppelin/contracts/utils/Address.sol\";\n\n/// @dev The main L2 contract for a Paima L2.\ncontract PaimaL2Contract {\n    using Address for address payable;\n\n    /// @dev Emitted when `paimaSubmitGameInput` function is called with `data`.\n    /// `userAddress` is the transaction sender and `value` is the transaction value.\n    event PaimaGameInteraction(address indexed userAddress, bytes data, uint256 value);\n\n    /// @dev Contract owner.\n    address public owner;\n    /// @dev Amount in wei that is required to be paid when calling `paimaSubmitGameInput`.\n    uint256 public fee; // in wei\n\n    /// @dev Sets the contract owner to `_owner` and payment fee to `_fee`.\n    constructor(address _owner, uint256 _fee) {\n        owner = _owner;\n        fee = _fee;\n    }\n\n    /// @dev Emits the `PaimaGameInteraction` event, logging the `msg.sender`, `data`, and `msg.value`.\n    /// Revert if `msg.value` is less than set `fee`.\n    function paimaSubmitGameInput(bytes calldata data) public payable {\n        require(msg.value >= fee, \"Sufficient funds required to submit game input\");\n        emit PaimaGameInteraction(msg.sender, data, msg.value);\n    }\n\n    /// @dev Withdraws the contract balance to the `owner`.\n    /// Callable only by the contract owner.\n    function withdrawFunds() public {\n        require(msg.sender == owner, \"Only owner can withdraw funds\");\n        address payable to = payable(owner);\n        uint256 balance = address(this).balance;\n        to.sendValue(balance);\n    }\n\n    /// @dev Sets the `newOwner` as the contract owner.\n    /// Callable only by the contract owner.\n    function setOwner(address newOwner) public {\n        require(msg.sender == owner, \"Only owner can change owner\");\n        owner = newOwner;\n    }\n\n    /// @dev Sets the `newFee` as the required payment fee.\n    /// Callable only by the contract owner.\n    function setFee(uint256 newFee) public {\n        require(msg.sender == owner, \"Only owner can change fee\");\n        fee = newFee;\n    }\n}\n"
       },
       "project/src/contracts/effectstreaml2.sol": {
-        "content": "// SPDX-License-Identifier: MIT\n\npragma solidity ^0.8.20;\n\nimport {PaimaL2Contract} from \"@paimaexample/evm-contracts/src/contracts/PaimaL2Contract.sol\";\n\n// THIS IS A SAMPLE CONTRACT\n// DO NOT USE THIS CONTRACT IN PRODUCTION\ncontract effectstreaml2 is PaimaL2Contract {\n    constructor() PaimaL2Contract(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266, 0) {}\n}\n"
+        "content": "// SPDX-License-Identifier: MIT\n\npragma solidity ^0.8.20;\n\nimport {PaimaL2Contract} from \"@paimaexample/evm-contracts/src/contracts/PaimaL2Contract.sol\";\n\ncontract effectstreaml2 is PaimaL2Contract {\n    constructor(address owner, uint256 fee) PaimaL2Contract(owner, fee) {}\n}\n"
       }
     }
   }
