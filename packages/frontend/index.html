@@ -63,12 +63,13 @@
     <div id="wallet-modal" class="modal">
       <div class="modal-content">
         <span class="close" id="close-modal">&times;</span>
-        <h2>Select Wallet</h2>
-        <div id="loading-wallets" style="display:none; text-align:center; padding:20px;">Scanning for wallets...</div>
-        <ul id="wallet-list" class="wallet-list">
-          <!-- Wallets will be injected here -->
-        </ul>
-        <div id="local-wallet-info" style="margin-top: 20px; font-size: 0.9em; color: #555; word-break: break-all; border-top: 1px solid #ccc; padding-top: 10px;"></div>
+        <h2>Connect Wallet</h2>
+        <p>Enter the wallet address you want to delegate to (e.g. your main wallet):</p>
+        <input type="text" id="input-delegate-address" placeholder="0x..." style="width: 100%; padding: 10px; margin: 10px 0; box-sizing: border-box; font-family: monospace;" />
+        <div style="display: flex; justify-content: center; gap: 10px; margin-top: 20px;">
+          <button id="btn-confirm-connect-wallet" style="padding: 10px 20px; cursor: pointer;">Connect</button>
+          <button id="btn-cancel-connect-wallet" style="padding: 10px 20px; cursor: pointer;">Cancel</button>
+        </div>
       </div>
     </div>
     <div id="add-tokens-modal" class="modal">
@@ -122,11 +123,11 @@
                 </ul>
                 <hr style="border: 0; border-top: 1px solid #ccc; margin: 20px 0;">
                 <h3>Connect Your Real Wallet</h3>
-                <p>To link your progress to your real blockchain wallet:</p>
+                <p>To delegate your game progress to a wallet address (e.g. your main wallet):</p>
                 <ol>
                     <li>Click the <strong>CONNECT WALLET</strong> button in the top right.</li>
-                    <li>Select your wallet provider from the list.</li>
-                    <li>Sign the message to verify ownership and link it to your game account.</li>
+                    <li>Enter the wallet address you want to delegate to.</li>
+                    <li>Confirm to send the delegation; your local account will be linked to that address.</li>
                 </ol>
             </div>
             <div style="display: flex; justify-content: center; margin-top: 20px;">

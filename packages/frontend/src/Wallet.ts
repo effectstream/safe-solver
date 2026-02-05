@@ -1,8 +1,6 @@
 import { showCustomAlert } from "./Utils";
 import { effectStreamService } from "./EffectStreamService";
-import { getConnectedWallet, getLocalWallet, initializeLocalWallet, WalletOption } from "./EffectStreamWallet";
-import { getAvailableWallets } from "./EffectStreamWallet";
-import { login } from "./EffectStreamWallet";
+import { getConnectedWallet, getLocalWallet, initializeLocalWallet } from "./EffectStreamWallet";
 import { state } from "./GameState";
 import { updateTokenDisplay } from "./GameLogic";
 
@@ -70,225 +68,69 @@ export function initWalletUI() {
     const connectWalletBtn = document.getElementById('btn-connect-wallet');
     const walletModal = document.getElementById('wallet-modal');
     const closeModal = document.getElementById('close-modal');
-    const walletList = document.getElementById('wallet-list');
-    const loadingWallets = document.getElementById('loading-wallets');
+    const inputDelegateAddress = document.getElementById('input-delegate-address') as HTMLInputElement;
+    const btnConfirmConnect = document.getElementById('btn-confirm-connect-wallet');
+    const btnCancelConnect = document.getElementById('btn-cancel-connect-wallet');
 
     if (connectWalletBtn) {
         connectWalletBtn.addEventListener('click', () => {
             if (walletModal) {
+                if (inputDelegateAddress) inputDelegateAddress.value = '';
                 walletModal.style.display = 'block';
-                renderWalletList();
             }
         });
     }
 
-    if (closeModal) {
+    if (closeModal && walletModal) {
         closeModal.addEventListener('click', () => {
-            if (walletModal) walletModal.style.display = 'none';
+            walletModal.style.display = 'none';
+        });
+    }
+
+    if (btnCancelConnect && walletModal) {
+        btnCancelConnect.addEventListener('click', () => {
+            walletModal.style.display = 'none';
         });
     }
 
     window.addEventListener('click', (event) => {
-        if (event.target == walletModal && walletModal) {
+        if (event.target === walletModal && walletModal) {
             walletModal.style.display = 'none';
         }
     });
 
-    async function renderWalletList() {
-        if (!walletList || !loadingWallets) return;
+    if (btnConfirmConnect && walletModal && inputDelegateAddress && connectWalletBtn) {
+        btnConfirmConnect.addEventListener('click', async () => {
+            const address = inputDelegateAddress.value.trim();
+            if (!address) {
+                showCustomAlert('Please enter a wallet address.');
+                return;
+            }
 
-        walletList.innerHTML = '';
-        loadingWallets.style.display = 'block';
+            const originalText = btnConfirmConnect.textContent;
+            btnConfirmConnect.textContent = 'Sending...';
+            (btnConfirmConnect as HTMLButtonElement).disabled = true;
 
-        try {
-            const wallets = await getAvailableWallets();
-            loadingWallets.style.display = 'none';
-
-            // Check local wallet account status
-            let localWalletHasAccount = false;
-            let localWalletAddress = null;
-            let associatedAddressesCount = 0;
             try {
-                const wallet = await initializeLocalWallet();
-                if (wallet) {
-                    localWalletAddress = wallet.walletAddress;
-                    const addressInfo = await effectStreamService.getAddressInfo(localWalletAddress);
-                    if (addressInfo && addressInfo.account_id !== null) {
-                        localWalletHasAccount = true;
-                        const addresses = await effectStreamService.getAccountAddresses(addressInfo.account_id);
-                        associatedAddressesCount = addresses ? addresses.length : 0;
-                    }
+                await effectStreamService.delegateToAddress(address);
+                walletModal.style.display = 'none';
+                const short = address.length > 10 ? address.substring(0, 6) + '...' + address.substring(address.length - 4) : address;
+                connectWalletBtn.textContent = 'Delegated to: ' + short;
+
+                const wallet = getLocalWallet();
+                if (wallet?.walletAddress) {
+                    const profile = await effectStreamService.getUserProfile(wallet.walletAddress);
+                    state.tokens = profile.balance;
+                    updateTokenDisplay();
+                    await updateSetNameButtonLabel();
                 }
-            } catch (e) {
-                console.error("Failed to check local wallet status", e);
+            } catch (err: any) {
+                console.error(err);
+                showCustomAlert('Delegation failed: ' + (err?.message || String(err)));
+            } finally {
+                btnConfirmConnect.textContent = originalText || 'Connect';
+                (btnConfirmConnect as HTMLButtonElement).disabled = false;
             }
-
-            // Check if already connected or local wallet has account
-            const connectedWallet = getConnectedWallet();
-
-            const isLinkedToRealWallet = localWalletHasAccount && associatedAddressesCount >= 2;
-
-            if (connectedWallet || isLinkedToRealWallet) {
-                const displayAddress = connectedWallet?.walletAddress || localWalletAddress;
-                const title = connectedWallet ? "Wallet Connected" : "Local Account Active";
-                const color = connectedWallet ? "#006600" : "#003366";
-
-                walletList.innerHTML = `
-            <li>
-              <div style="padding: 10px; text-align: center;">
-                <p style="margin: 0; font-weight: bold; color: ${color};">${title}</p>
-                <p style="margin: 5px 0 0; font-size: 0.8em; color: #666;">
-                  ${displayAddress ?
-                        displayAddress.substring(0, 6) + '...' + displayAddress.substring(displayAddress.length - 4) :
-                        'Unknown Address'}
-                </p>
-              </div>
-            </li>
-           `;
-            } else if (wallets && wallets.length > 0) {
-                wallets.forEach(wallet => {
-                    const li = document.createElement('li');
-                    const btn = document.createElement('button');
-                    btn.className = 'wallet-btn';
-
-                    let iconHtml = '';
-                    if (wallet.metadata && wallet.metadata.icon) {
-                        iconHtml = `<img src="${wallet.metadata.icon}" width="20" height="20" style="margin-right: 10px; vertical-align: middle;">`;
-                    } else {
-                        const initial = wallet.metadata && wallet.metadata.displayName ? wallet.metadata.displayName.charAt(0) : '?';
-                        iconHtml = `<span style="display:inline-block; width:20px; text-align:center; background:#ccc; margin-right:10px; border-radius:3px;">${initial}</span>`;
-                    }
-
-                    btn.innerHTML = `
-              <div style="display:flex; align-items:center;">
-                ${iconHtml}
-                <div style="display:flex; flex-direction:column; align-items:flex-start;">
-                  <span style="font-weight:bold;">${wallet.name}</span>
-                  <span style="font-size:0.8em; color:#666;">${wallet.types.join(', ')}</span>
-                </div>
-              </div>
-            `;
-
-                    btn.onclick = () => handleLogin(wallet);
-                    li.appendChild(btn);
-                    walletList.appendChild(li);
-                });
-            } else {
-                walletList.innerHTML = '<li>No wallets found.</li>';
-            }
-
-
-            const localWalletInfo = document.getElementById('local-wallet-info');
-            if (localWalletInfo) {
-                const wallet = await initializeLocalWallet();
-                if (wallet) {
-                    const address = wallet.walletAddress;
-                    const addressInfo = await effectStreamService.getAddressInfo(address);
-
-                    let accountHtml = '<p style="margin:5px 0; font-size:0.8em; color:#666;">Not associated with an account yet.</p>';
-
-                    if (addressInfo && addressInfo.account_id !== null) {
-                        const accountId = addressInfo.account_id;
-                        const addresses = await effectStreamService.getAccountAddresses(accountId);
-                        const accountInfo = await effectStreamService.getAccountInfo(accountId);
-                        const primaryAddr = accountInfo ? accountInfo.primary_address : null;
-
-                        // Sort: Primary first
-                        if (primaryAddr) {
-                            addresses.sort((a, b) => {
-                                if (a.address === primaryAddr) return -1;
-                                if (b.address === primaryAddr) return 1;
-                                return 0;
-                            });
-                        }
-
-                        let addressesHtml = '';
-                        if (addresses && addresses.length > 0) {
-                            addressesHtml = `
-                          <div style="margin-top:5px; padding:5px; background:#e6ffe6; border-radius:3px;">
-                            <p style="margin:0 0 5px; font-weight:bold; font-size:0.8em;">Linked Addresses:</p>
-                            <ul style="margin:0; padding-left:15px; font-size:0.75em; font-family:monospace;">
-                              ${addresses.map(a => {
-                                const isMain = a.address === primaryAddr;
-                                const isLocal = a.address === address;
-                                const shortAddr = a.address.substring(0, 6) + '...' + a.address.substring(a.address.length - 4);
-                                let label = '';
-                                if (isMain) label += ' (Main Wallet)';
-                                if (isLocal) label += ' (Local Wallet Address)';
-                                return `<li>${shortAddr}${label}</li>`;
-                            }).join('')}
-                            </ul>
-                          </div>
-                        `;
-                        }
-
-                        accountHtml = `
-                      <p style="margin:5px 0; font-size:0.8em; color:#006600;">Account ID: ${accountId}</p>
-                      ${addressesHtml}
-                    `;
-                    }
-
-                    localWalletInfo.innerHTML = `
-                    <div style="margin-top: 10px;">
-                      <p style="margin:0; font-weight:bold;">Local Wallet Address:</p>
-                      <p style="margin:5px 0; font-family:monospace; font-size:0.85em; background: #f0f0f0; padding: 5px; border-radius: 4px;">${address}</p>
-                      <p style="margin:5px 0 0; font-size:0.8em; color:#666;">This is an auto-generated local wallet unique to your browser session.</p>
-  
-                      <div style="border-top: 1px solid #ccc; margin: 10px 0;"></div>
-  
-                      ${accountHtml}
-                      <button id="btn-delete-local-data" style="margin-top: 5px; padding: 5px 10px; background: #cc0000; color: white; border: none; border-radius: 3px; cursor: pointer; font-size: 0.8em;">Delete Local Data</button>
-                    </div>
-                `;
-
-                    const deleteBtn = document.getElementById('btn-delete-local-data');
-                    if (deleteBtn) {
-                        deleteBtn.onclick = () => {
-                            if (confirm("Are you sure you want to delete your local wallet data? This cannot be undone.")) {
-                                localStorage.clear();
-                                location.reload();
-                            }
-                        };
-                    }
-                }
-            }
-        } catch (e: any) {
-            loadingWallets.style.display = 'none';
-            walletList.innerHTML = `<li>Error loading wallets: ${e.message}</li>`;
-        }
-    }
-
-    async function handleLogin(walletOption: WalletOption) {
-        if (!walletModal || !connectWalletBtn) return;
-
-        try {
-            walletModal.style.display = 'none';
-            connectWalletBtn.textContent = 'Connecting...';
-
-            const wallet = await login(walletOption);
-
-            connectWalletBtn.textContent = 'Verifying...';
-
-            // Fetch user profile from mock service
-            if (wallet.walletAddress) {
-                const profile = await effectStreamService.getUserProfile(wallet.walletAddress);
-                state.tokens = profile.balance;
-                updateTokenDisplay();
-
-                // Update Set Name button using shared logic
-                await updateSetNameButtonLabel();
-            }
-
-            connectWalletBtn.textContent = 'Connected: ' + (wallet.walletAddress ? wallet.walletAddress.substring(0, 6) + '...' + wallet.walletAddress.substring(wallet.walletAddress.length - 4) : 'Unknown');
-
-            console.log("Connected wallet:", wallet);
-
-        } catch (err: any) {
-            console.error(err);
-            showCustomAlert('Login failed: ' + err.message);
-            connectWalletBtn.textContent = 'CONNECT WALLET';
-            // Disconnect wallet and clear variables
-            // connectedWallet = null;
-        }
+        });
     }
 }

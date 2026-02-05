@@ -11,7 +11,7 @@ And serves as a template for building on-chain games.
 To start you must have some dependencies installed.
 - [Deno](https://docs.deno.com/runtime/getting_started/installation/)
 - [Node.js](https://nodejs.org/en/download/)
-- [Compact](https://docs.midnight.network/getting-started/installation)
+- [Compact 0.27.0](https://docs.midnight.network/getting-started/installation)
 - [Forge](https://getfoundry.sh/introduction/installation)
 
 # Quick Start

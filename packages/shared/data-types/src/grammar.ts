@@ -9,8 +9,7 @@ export const effectstreamL2Grammar = {
   submitScore: [
     ["accountId", Type.Integer()],
   ],
-
-
+  delegate: [["delegateToAddress", Type.String()]],
 } as const satisfies GrammarDefinition;
 
 export const grammar = {

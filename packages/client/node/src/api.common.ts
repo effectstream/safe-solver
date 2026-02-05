@@ -5,9 +5,30 @@ import {
   getAddressByAddress,
   getAccountById,
   getAddressesByAccountId,
+  getGameInfo,
+  getAchievementsWithCompletedCount,
+  getLeaderboardTotalPlayers,
+  getLeaderboardEntries,
+  getIdentityResolution,
+  getUserProfileStats,
+  getUserAchievementIds,
+  getAccountProfile,
+} from "@safe-solver/database";
+import type {
+  IGetGameInfoResult,
+  IGetAchievementsWithCompletedCountResult,
+  IGetLeaderboardTotalPlayersResult,
+  IGetLeaderboardEntriesResult,
+  IGetIdentityResolutionResult,
+  IGetUserProfileStatsResult,
+  IGetUserAchievementIdsResult,
+  IGetAccountProfileResult,
 } from "@safe-solver/database";
 import type { Pool } from "pg";
 import type fastify from "fastify";
+
+const GAME_API_PREFIX = "/v1/game";
+const VALID_LEADERBOARD_PERIODS = ["all_time", "weekly", "daily", "monthly"] as const;
 
 export const apiCommon = async (
   server: fastify.FastifyInstance,
@@ -116,5 +137,170 @@ export const apiCommon = async (
       "getAddressesByAccountId"
     );
     reply.send(results);
+  });
+
+  // ---------- Game Integration API (SPEC v1) ----------
+
+  const GameInfoAchievementSchema = Type.Object({
+    id: Type.String(),
+    name: Type.String(),
+    description: Type.String(),
+    icon_url: Type.String(),
+    completed_count: Type.Number(),
+  });
+
+  const GameInfoResponseSchema = Type.Object({
+    name: Type.String(),
+    description: Type.String(),
+    score_unit: Type.String(),
+    sort_order: Type.Union([Type.Literal("ASC"), Type.Literal("DESC")]),
+    achievements: Type.Array(GameInfoAchievementSchema),
+  });
+
+  server.get<{
+    Reply: Static<typeof GameInfoResponseSchema> | { error: string };
+  }>(`${GAME_API_PREFIX}/info`, async (_request, reply) => {
+    const gameInfoRows = (await runPreparedQuery(
+      getGameInfo.run(undefined, dbConn),
+      "getGameInfo"
+    )) as IGetGameInfoResult[];
+    const [gameInfo] = gameInfoRows;
+    if (!gameInfo) {
+      reply.code(404).send({ error: "Game info not configured" });
+      return;
+    }
+    const achievementRows = (await runPreparedQuery(
+      getAchievementsWithCompletedCount.run(undefined, dbConn),
+      "getAchievementsWithCompletedCount"
+    )) as IGetAchievementsWithCompletedCountResult[];
+    reply.send({
+      name: gameInfo.name,
+      description: gameInfo.description,
+      score_unit: gameInfo.score_unit,
+      sort_order: gameInfo.sort_order as "ASC" | "DESC",
+      achievements: achievementRows.map((a: IGetAchievementsWithCompletedCountResult) => ({
+        id: a.id,
+        name: a.name,
+        description: a.description,
+        icon_url: a.icon_url,
+        completed_count: a.completed_count ?? 0,
+      })),
+    });
+  });
+
+  const LeaderboardEntrySchema = Type.Object({
+    rank: Type.Number(),
+    address: Type.String(),
+    player_id: Type.String(),
+    display_name: Type.Union([Type.String(), Type.Null()]),
+    score: Type.Number(),
+    achievements_unlocked: Type.Number(),
+  });
+
+  const LeaderboardV1ResponseSchema = Type.Object({
+    period: Type.String(),
+    total_players: Type.Number(),
+    entries: Type.Array(LeaderboardEntrySchema),
+  });
+
+  server.get<{
+    Querystring: { period?: string; limit?: string; offset?: string };
+    Reply: Static<typeof LeaderboardV1ResponseSchema>;
+  }>(`${GAME_API_PREFIX}/leaderboard`, async (request, reply) => {
+    const period = VALID_LEADERBOARD_PERIODS.includes(
+      request.query?.period as (typeof VALID_LEADERBOARD_PERIODS)[number]
+    )
+      ? (request.query.period as (typeof VALID_LEADERBOARD_PERIODS)[number])
+      : "all_time";
+    const limit = Math.min(Math.max(1, parseInt(request.query?.limit ?? "50", 10) || 50), 100);
+    const offset = Math.max(0, parseInt(request.query?.offset ?? "0", 10) || 0);
+
+    const totalRows = (await runPreparedQuery(
+      getLeaderboardTotalPlayers.run({ period }, dbConn),
+      "getLeaderboardTotalPlayers"
+    )) as IGetLeaderboardTotalPlayersResult[];
+    const [totalRow] = totalRows;
+    const entries = (await runPreparedQuery(
+      getLeaderboardEntries.run({ period, limit, offset }, dbConn),
+      "getLeaderboardEntries"
+    )) as IGetLeaderboardEntriesResult[];
+    reply.send({
+      period,
+      total_players: totalRow?.total_players ?? 0,
+      entries: entries.map((e: IGetLeaderboardEntriesResult) => ({
+        rank: e.rank ?? 0,
+        address: e.address ?? "",
+        player_id: e.player_id ?? "",
+        display_name: e.display_name ?? null,
+        score: e.score != null ? Number(e.score) : 0,
+        achievements_unlocked: e.achievements_unlocked ?? 0,
+      })),
+    });
+  });
+
+  const UserIdentitySchema = Type.Object({
+    queried_address: Type.String(),
+    resolved_address: Type.String(),
+    is_delegate: Type.Boolean(),
+    display_name: Type.Union([Type.String(), Type.Null()]),
+  });
+
+  const UserStatsSchema = Type.Object({
+    rank: Type.Union([Type.Number(), Type.Null()]),
+    score: Type.Number(),
+    matches_played: Type.Union([Type.Number(), Type.Optional(Type.Number())]),
+  });
+
+  const UserProfileV1ResponseSchema = Type.Object({
+    identity: UserIdentitySchema,
+    stats: UserStatsSchema,
+    achievements: Type.Array(Type.String()),
+  });
+
+  server.get<{
+    Params: { address: string };
+    Reply: Static<typeof UserProfileV1ResponseSchema> | { error: string };
+  }>(`${GAME_API_PREFIX}/users/:address`, async (request, reply) => {
+    const { address } = request.params;
+    const identityRows = (await runPreparedQuery(
+      getIdentityResolution.run({ address }, dbConn),
+      "getIdentityResolution"
+    )) as IGetIdentityResolutionResult[];
+    const [identityRow] = identityRows;
+    if (!identityRow) {
+      reply.code(404).send({ error: "Address not found" });
+      return;
+    }
+
+    const [profileRow] = (await runPreparedQuery(
+      getAccountProfile.run({ account_id: identityRow.account_id }, dbConn),
+      "getAccountProfile"
+    )) as IGetAccountProfileResult[];
+
+    const statsRows = (await runPreparedQuery(
+      getUserProfileStats.run({ account_id: identityRow.account_id }, dbConn),
+      "getUserProfileStats"
+    )) as IGetUserProfileStatsResult[];
+    const [statsRow] = statsRows;
+    const achievementRows = (await runPreparedQuery(
+      getUserAchievementIds.run({ account_id: identityRow.account_id }, dbConn),
+      "getUserAchievementIds"
+    )) as IGetUserAchievementIdsResult[];
+
+    const score = statsRow?.score != null ? Number(statsRow.score) : 0;
+    reply.send({
+      identity: {
+        queried_address: address,
+        resolved_address: identityRow.resolved_address ?? address,
+        is_delegate: identityRow.is_delegate ?? false,
+        display_name: profileRow?.username ?? null,
+      },
+      stats: {
+        rank: score > 0 && statsRow?.rank != null ? statsRow.rank : null,
+        score,
+        matches_played: statsRow?.matches_played ?? 0,
+      },
+      achievements: achievementRows.map((r: IGetUserAchievementIdsResult) => r.achievement_id),
+    });
   });
 };

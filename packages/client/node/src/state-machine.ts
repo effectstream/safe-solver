@@ -14,9 +14,13 @@ import {
   incrementGamesLost,
   incrementGamesWon,
   advanceGameRound,
-  getAccountProfile
+  getAccountProfile,
+  insertScoreEntry,
+  unlockAchievement,
+  getAchievementIdsByPrefix,
+  upsertDelegation,
 } from "@safe-solver/database";
-import { WalletAddress, AddressType } from "@paimaexample/utils";
+import type { WalletAddress, AddressType } from "@paimaexample/utils";
 
 const stm = new PaimaSTM<typeof grammar, any>(grammar);
 
@@ -65,8 +69,28 @@ stm.addStateTransition("setName", function* (data) {
   }
   const accountId = yield* getAccountId(data.signerAddress, data.signerAddressType);
   if (accountId === null) return;
-  console.log(`🎉 [setName] Account ${accountId} -> ${name}`);
-  yield* World.resolve(setAccountName, { account_id: accountId, name });
+  console.log(`[setName] Account ${accountId} -> ${name}`);
+  yield* World.resolve(setAccountName, { 
+    account_id: accountId, 
+    name,
+    player_id: String(accountId),
+  });
+});
+
+stm.addStateTransition("delegate", function* (data) {
+  const { delegateToAddress } = data.parsedInput;
+  const trimmed = typeof delegateToAddress === "string" ? delegateToAddress.trim() : "";
+  if (!trimmed) {
+    console.log("[delegate] No delegateToAddress provided");
+    return;
+  }
+  const accountId = yield* getAccountId(data.signerAddress, data.signerAddressType);
+  if (accountId === null) return;
+  console.log(`[delegate] Account ${accountId} -> delegate to ${trimmed}`);
+  yield* World.resolve(upsertDelegation, {
+    account_id: accountId,
+    delegate_to_address: trimmed,
+  });
 });
 
 stm.addStateTransition("initLevel", function* (data) {
@@ -82,7 +106,10 @@ stm.addStateTransition("initLevel", function* (data) {
   }
 
   // Ensure user balance record exists
-  yield* World.resolve(ensureAccountBalance, { account_id: accountId });
+  yield* World.resolve(ensureAccountBalance, { 
+    account_id: accountId,
+    player_id: String(accountId),
+  });
 
   // Generate random hash using provided generator
   // Assuming Prando-like interface
@@ -99,7 +126,8 @@ stm.addStateTransition("initLevel", function* (data) {
     round,
     safe_count: safeCount,
     random_hash: randomHash,
-    is_ongoing: true
+    is_ongoing: true,
+    player_id: String(accountId),
   });
 });
 
@@ -139,13 +167,13 @@ stm.addStateTransition("checkSafe", function* (data) {
   } else {
     // Win safe, advance round
     yield* World.resolve(updateCurrentScore, { account_id: accountId, amount: prize });
-    
+
     // Determine next level parameters. We want 3 to 7 safes.
     // next(3, 8) -> [3, 8) -> floor -> 3, 4, 5, 6, 7
     const nextSafeCount = Math.floor(data.randomGenerator.next(3, 8));
-    yield* World.resolve(advanceGameRound, { 
-        account_id: accountId, 
-        safe_count: nextSafeCount 
+    yield* World.resolve(advanceGameRound, {
+      account_id: accountId,
+      safe_count: nextSafeCount,
     });
   }
 });
@@ -164,11 +192,49 @@ stm.addStateTransition("submitScore", function* (data) {
   if (!gameState) return;
 
   const currentScore = gameState.current_score!;
+  const level = gameState.round!;
 
-  console.log(`🎉 [submitScore] Account: ${accountId}, Adding Score: ${currentScore}`);
-  
+
+  console.log(`🎉 [submitScore] Account: ${accountId}, Adding Score: ${currentScore}, Level: ${level}`);
+
+  // Achievements: Reach Level 1–10, Reach Level 15 (unlock when game is won at that level)
+  const levelAchievements: { minLevel: number; id: string }[] = [
+    { minLevel: 1, id: "reach_level_1" },
+    { minLevel: 2, id: "reach_level_2" },
+    { minLevel: 3, id: "reach_level_3" },
+    { minLevel: 4, id: "reach_level_4" },
+    { minLevel: 5, id: "reach_level_5" },
+    { minLevel: 6, id: "reach_level_6" },
+    { minLevel: 7, id: "reach_level_7" },
+    { minLevel: 8, id: "reach_level_8" },
+    { minLevel: 9, id: "reach_level_9" },
+    { minLevel: 10, id: "reach_level_10" },
+    { minLevel: 15, id: "reach_level_15" },
+    { minLevel: 20, id: "reach_level_20" },
+    { minLevel: 25, id: "reach_level_25" },
+    { minLevel: 30, id: "reach_level_30" },
+    { minLevel: 35, id: "reach_level_35" },
+    { minLevel: 40, id: "reach_level_40" },
+    { minLevel: 45, id: "reach_level_45" },
+    { minLevel: 50, id: "reach_level_50" },
+  ];
+  for (const { minLevel, id } of levelAchievements) {
+    if (level > minLevel) {
+      yield* World.resolve(unlockAchievement, { account_id: accountId, achievement_id: id });
+    }
+  }
+
   if (currentScore > 0) {
-      yield* World.resolve(updateAccountBalance, { account_id: accountId, amount: currentScore });
+    yield* World.resolve(updateAccountBalance, { 
+      account_id: accountId, 
+      amount: currentScore,
+      player_id: String(accountId),
+    });
+    // Record score for Game Integration API leaderboard (all_time / weekly / daily)
+    yield* World.resolve(insertScoreEntry, {
+      account_id: accountId,
+      score: currentScore,
+    });
   }
 
   // Mark game as won/finished

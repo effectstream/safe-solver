@@ -170,19 +170,34 @@ class EffectStreamService {
   }
 
   /**
-   * Fetches the leaderboard data.
+   * Fetches the leaderboard from GET /v1/game/leaderboard (period, limit, offset).
+   * Maps entries to { name, score } for the UI.
    */
-  async getLeaderboard(): Promise<LeaderboardEntry[]> {
-    console.log(`[MockServer] Request: Get Leaderboard`);
+  async getLeaderboard(options?: { period?: string; limit?: number; offset?: number }): Promise<LeaderboardEntry[]> {
+    const period = options?.period ?? "all_time";
+    const limit = options?.limit ?? 50;
+    const offset = options?.offset ?? 0;
+    const params = new URLSearchParams({ period, limit: String(limit), offset: String(offset) });
+    const url = `${ENV.API_URL}/v1/game/leaderboard?${params}`;
     try {
-      const response = await fetch(`${ENV.API_URL}/api/leaderboard`);
+      const response = await fetch(url);
       if (!response.ok) {
-        console.error("Leaderboard fetch failed");
+        console.error("Leaderboard fetch failed", response.status);
         return [];
       }
       const data = await response.json();
-      console.log(`[MockServer] Response: Sending ${data.length} leaderboard entries`);
-      return data;
+      const entries = (data.entries ?? []) as Array<{ rank?: number; address?: string; player_id?: string; display_name?: string | null; score?: number; achievements_unlocked?: number }>;
+      const mapped: LeaderboardEntry[] = entries.map((e) => {
+        const score = e.score != null ? Number(e.score) : 0;
+        let name = e.display_name ?? null;
+        if (!name && e.address) {
+          const addr = e.address;
+          name = addr.length > 10 ? `${addr.slice(0, 6)}...${addr.slice(-4)}` : addr;
+        }
+        return { name: name ?? "Anonymous", score };
+      });
+      console.log(`[EffectStreamService] Leaderboard (${data.period ?? period}): ${mapped.length} entries`);
+      return mapped;
     } catch (e) {
       console.error("Error fetching leaderboard", e);
       return [];
@@ -417,6 +432,29 @@ class EffectStreamService {
     await this.delay(500);
     console.log(`[MockServer] Response: Name set (queued).`);
     return true;
+  }
+
+  /**
+   * Sends a delegate TX: this account delegates to the given wallet address.
+   */
+  async delegateToAddress(delegateToAddress: string): Promise<void> {
+    await this.ensureLocalAccount();
+    const localWallet = getLocalWallet();
+    if (!localWallet) {
+      throw new Error("Local wallet not found");
+    }
+    const trimmed = delegateToAddress.trim();
+    if (!trimmed) {
+      throw new Error("Wallet address is required");
+    }
+    const conciseData = ["delegate", trimmed];
+    await this.sendTransactionWrapper(
+      localWallet,
+      conciseData,
+      EngineConfig,
+      "wait-effectstream-processed"
+    );
+    console.log(`[EffectStreamService] Delegation sent to ${trimmed}`);
   }
 }
 
