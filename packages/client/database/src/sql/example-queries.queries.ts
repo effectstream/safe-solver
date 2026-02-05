@@ -646,7 +646,8 @@ export const unlockAchievement = new PreparedQuery<IUnlockAchievementParams,IUnl
 
 /** 'GetLeaderboardTotalPlayers' parameters type */
 export interface IGetLeaderboardTotalPlayersParams {
-  period: string;
+  end_date?: DateOrString | null | void;
+  start_date?: DateOrString | null | void;
 }
 
 /** 'GetLeaderboardTotalPlayers' return type */
@@ -660,7 +661,7 @@ export interface IGetLeaderboardTotalPlayersQuery {
   result: IGetLeaderboardTotalPlayersResult;
 }
 
-const getLeaderboardTotalPlayersIR: any = {"usedParamSet":{"period":true},"params":[{"name":"period","required":true,"transform":{"type":"scalar"},"locs":[{"a":143,"b":150},{"a":201,"b":208},{"a":261,"b":268}]}],"statement":"SELECT COUNT(*)::int AS total_players\nFROM (\n  SELECT account_id, MAX(score) AS best\n  FROM score_entries\n  WHERE achieved_at >= CASE\n    WHEN :period! = 'daily' THEN date_trunc('day', NOW())\n    WHEN :period! = 'weekly' THEN date_trunc('week', NOW())\n    WHEN :period! = 'monthly' THEN date_trunc('month', NOW())\n    ELSE '1970-01-01'::timestamptz\n  END\n  GROUP BY account_id\n) t"};
+const getLeaderboardTotalPlayersIR: any = {"usedParamSet":{"start_date":true,"end_date":true},"params":[{"name":"start_date","required":false,"transform":{"type":"scalar"},"locs":[{"a":138,"b":148}]},{"name":"end_date","required":false,"transform":{"type":"scalar"},"locs":[{"a":221,"b":229}]}],"statement":"SELECT COUNT(*)::int AS total_players\nFROM (\n  SELECT account_id, MAX(score) AS best\n  FROM score_entries\n  WHERE achieved_at >= COALESCE(:start_date::timestamptz, NOW() - INTERVAL '1 year')\n  AND achieved_at <= COALESCE(:end_date::timestamptz, NOW())\n  GROUP BY account_id\n) t"};
 
 /**
  * Query generated from SQL:
@@ -669,12 +670,8 @@ const getLeaderboardTotalPlayersIR: any = {"usedParamSet":{"period":true},"param
  * FROM (
  *   SELECT account_id, MAX(score) AS best
  *   FROM score_entries
- *   WHERE achieved_at >= CASE
- *     WHEN :period! = 'daily' THEN date_trunc('day', NOW())
- *     WHEN :period! = 'weekly' THEN date_trunc('week', NOW())
- *     WHEN :period! = 'monthly' THEN date_trunc('month', NOW())
- *     ELSE '1970-01-01'::timestamptz
- *   END
+ *   WHERE achieved_at >= COALESCE(:start_date::timestamptz, NOW() - INTERVAL '1 year')
+ *   AND achieved_at <= COALESCE(:end_date::timestamptz, NOW())
  *   GROUP BY account_id
  * ) t
  * ```
@@ -684,9 +681,10 @@ export const getLeaderboardTotalPlayers = new PreparedQuery<IGetLeaderboardTotal
 
 /** 'GetLeaderboardEntries' parameters type */
 export interface IGetLeaderboardEntriesParams {
+  end_date?: DateOrString | null | void;
   limit: NumberOrString;
   offset: NumberOrString;
-  period: string;
+  start_date?: DateOrString | null | void;
 }
 
 /** 'GetLeaderboardEntries' return type */
@@ -705,7 +703,7 @@ export interface IGetLeaderboardEntriesQuery {
   result: IGetLeaderboardEntriesResult;
 }
 
-const getLeaderboardEntriesIR: any = {"usedParamSet":{"period":true,"limit":true,"offset":true},"params":[{"name":"period","required":true,"transform":{"type":"scalar"},"locs":[{"a":121,"b":128},{"a":179,"b":186},{"a":239,"b":246}]},{"name":"limit","required":true,"transform":{"type":"scalar"},"locs":[{"a":963,"b":969}]},{"name":"offset","required":true,"transform":{"type":"scalar"},"locs":[{"a":978,"b":985}]}],"statement":"WITH best_scores AS (\n  SELECT account_id, MAX(score) AS score\n  FROM score_entries\n  WHERE achieved_at >= CASE\n    WHEN :period! = 'daily' THEN date_trunc('day', NOW())\n    WHEN :period! = 'weekly' THEN date_trunc('week', NOW())\n    WHEN :period! = 'monthly' THEN date_trunc('month', NOW())\n    ELSE '1970-01-01'::timestamptz\n  END\n  GROUP BY account_id\n),\nranked AS (\n  SELECT account_id, score, ROW_NUMBER() OVER (ORDER BY score DESC)::int AS rank\n  FROM best_scores\n)\nSELECT r.rank, COALESCE(d.delegate_to_address, a.primary_address) AS address, COALESCE(u.player_id, 'user_' || r.account_id) AS player_id, u.name AS display_name, r.score,\n  (SELECT COUNT(*)::int FROM achievement_completions ac WHERE ac.account_id = r.account_id) AS achievements_unlocked\nFROM ranked r\nJOIN effectstream.accounts a ON a.id = r.account_id\nLEFT JOIN delegations d ON d.account_id = r.account_id\nLEFT JOIN user_game_state u ON u.account_id = r.account_id\nORDER BY r.rank\nLIMIT :limit! OFFSET :offset!"};
+const getLeaderboardEntriesIR: any = {"usedParamSet":{"start_date":true,"end_date":true,"limit":true,"offset":true},"params":[{"name":"start_date","required":false,"transform":{"type":"scalar"},"locs":[{"a":116,"b":126}]},{"name":"end_date","required":false,"transform":{"type":"scalar"},"locs":[{"a":199,"b":207}]},{"name":"limit","required":true,"transform":{"type":"scalar"},"locs":[{"a":860,"b":866}]},{"name":"offset","required":true,"transform":{"type":"scalar"},"locs":[{"a":875,"b":882}]}],"statement":"WITH best_scores AS (\n  SELECT account_id, MAX(score) AS score\n  FROM score_entries\n  WHERE achieved_at >= COALESCE(:start_date::timestamptz, NOW() - INTERVAL '1 year')\n  AND achieved_at <= COALESCE(:end_date::timestamptz, NOW())\n  GROUP BY account_id\n),\nranked AS (\n  SELECT account_id, score, ROW_NUMBER() OVER (ORDER BY score DESC)::int AS rank\n  FROM best_scores\n)\nSELECT r.rank, COALESCE(d.delegate_to_address, a.primary_address) AS address, COALESCE(u.player_id, 'user_' || r.account_id) AS player_id, u.name AS display_name, r.score,\n  (SELECT COUNT(*)::int FROM achievement_completions ac WHERE ac.account_id = r.account_id) AS achievements_unlocked\nFROM ranked r\nJOIN effectstream.accounts a ON a.id = r.account_id\nLEFT JOIN delegations d ON d.account_id = r.account_id\nLEFT JOIN user_game_state u ON u.account_id = r.account_id\nORDER BY r.rank\nLIMIT :limit! OFFSET :offset!"};
 
 /**
  * Query generated from SQL:
@@ -713,12 +711,8 @@ const getLeaderboardEntriesIR: any = {"usedParamSet":{"period":true,"limit":true
  * WITH best_scores AS (
  *   SELECT account_id, MAX(score) AS score
  *   FROM score_entries
- *   WHERE achieved_at >= CASE
- *     WHEN :period! = 'daily' THEN date_trunc('day', NOW())
- *     WHEN :period! = 'weekly' THEN date_trunc('week', NOW())
- *     WHEN :period! = 'monthly' THEN date_trunc('month', NOW())
- *     ELSE '1970-01-01'::timestamptz
- *   END
+ *   WHERE achieved_at >= COALESCE(:start_date::timestamptz, NOW() - INTERVAL '1 year')
+ *   AND achieved_at <= COALESCE(:end_date::timestamptz, NOW())
  *   GROUP BY account_id
  * ),
  * ranked AS (
@@ -776,6 +770,8 @@ export const getIdentityResolution = new PreparedQuery<IGetIdentityResolutionPar
 /** 'GetUserProfileStats' parameters type */
 export interface IGetUserProfileStatsParams {
   account_id: number;
+  end_date?: DateOrString | null | void;
+  start_date?: DateOrString | null | void;
 }
 
 /** 'GetUserProfileStats' return type */
@@ -791,16 +787,31 @@ export interface IGetUserProfileStatsQuery {
   result: IGetUserProfileStatsResult;
 }
 
-const getUserProfileStatsIR: any = {"usedParamSet":{"account_id":true},"params":[{"name":"account_id","required":true,"transform":{"type":"scalar"},"locs":[{"a":215,"b":226},{"a":298,"b":309},{"a":421,"b":432}]}],"statement":"SELECT\n  (SELECT COUNT(*)::int + 1 FROM (\n    SELECT account_id, MAX(score) AS best FROM score_entries GROUP BY account_id\n  ) t WHERE t.best > (SELECT COALESCE(MAX(score), -1) FROM score_entries WHERE account_id = :account_id!)) AS rank,\n  (SELECT MAX(score) FROM score_entries WHERE account_id = :account_id!) AS score,\n  (SELECT COALESCE(games_won, 0) + COALESCE(games_lost, 0) FROM user_game_state WHERE account_id = :account_id!) AS matches_played"};
+const getUserProfileStatsIR: any = {"usedParamSet":{"start_date":true,"end_date":true,"account_id":true},"params":[{"name":"start_date","required":false,"transform":{"type":"scalar"},"locs":[{"a":141,"b":151},{"a":435,"b":445},{"a":678,"b":688}]},{"name":"end_date","required":false,"transform":{"type":"scalar"},"locs":[{"a":228,"b":236},{"a":522,"b":530},{"a":764,"b":772}]},{"name":"account_id","required":true,"transform":{"type":"scalar"},"locs":[{"a":388,"b":399},{"a":632,"b":643},{"a":908,"b":919}]}],"statement":"SELECT\n  (SELECT COUNT(*)::int + 1 FROM (\n    SELECT account_id, MAX(score) AS best\n    FROM score_entries\n    WHERE achieved_at >= COALESCE(:start_date::timestamptz, NOW() - INTERVAL '1 year')\n      AND achieved_at <= COALESCE(:end_date::timestamptz, NOW())\n    GROUP BY account_id\n  ) t WHERE t.best > (\n    SELECT COALESCE(MAX(score), -1)\n    FROM score_entries\n    WHERE account_id = :account_id!\n      AND achieved_at >= COALESCE(:start_date::timestamptz, NOW() - INTERVAL '1 year')\n      AND achieved_at <= COALESCE(:end_date::timestamptz, NOW())\n  )) AS rank,\n  (SELECT MAX(score)\n   FROM score_entries\n   WHERE account_id = :account_id!\n     AND achieved_at >= COALESCE(:start_date::timestamptz, NOW() - INTERVAL '1 year')\n     AND achieved_at <= COALESCE(:end_date::timestamptz, NOW())\n  ) AS score,\n  (SELECT COALESCE(games_won, 0) + COALESCE(games_lost, 0) FROM user_game_state WHERE account_id = :account_id!) AS matches_played"};
 
 /**
  * Query generated from SQL:
  * ```
  * SELECT
  *   (SELECT COUNT(*)::int + 1 FROM (
- *     SELECT account_id, MAX(score) AS best FROM score_entries GROUP BY account_id
- *   ) t WHERE t.best > (SELECT COALESCE(MAX(score), -1) FROM score_entries WHERE account_id = :account_id!)) AS rank,
- *   (SELECT MAX(score) FROM score_entries WHERE account_id = :account_id!) AS score,
+ *     SELECT account_id, MAX(score) AS best
+ *     FROM score_entries
+ *     WHERE achieved_at >= COALESCE(:start_date::timestamptz, NOW() - INTERVAL '1 year')
+ *       AND achieved_at <= COALESCE(:end_date::timestamptz, NOW())
+ *     GROUP BY account_id
+ *   ) t WHERE t.best > (
+ *     SELECT COALESCE(MAX(score), -1)
+ *     FROM score_entries
+ *     WHERE account_id = :account_id!
+ *       AND achieved_at >= COALESCE(:start_date::timestamptz, NOW() - INTERVAL '1 year')
+ *       AND achieved_at <= COALESCE(:end_date::timestamptz, NOW())
+ *   )) AS rank,
+ *   (SELECT MAX(score)
+ *    FROM score_entries
+ *    WHERE account_id = :account_id!
+ *      AND achieved_at >= COALESCE(:start_date::timestamptz, NOW() - INTERVAL '1 year')
+ *      AND achieved_at <= COALESCE(:end_date::timestamptz, NOW())
+ *   ) AS score,
  *   (SELECT COALESCE(games_won, 0) + COALESCE(games_lost, 0) FROM user_game_state WHERE account_id = :account_id!) AS matches_played
  * ```
  */

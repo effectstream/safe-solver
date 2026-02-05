@@ -1,7 +1,6 @@
 import { type Static, Type } from "@sinclair/typebox";
 import { runPreparedQuery } from "@paimaexample/db";
 import {
-  getLeaderboard,
   getAddressByAddress,
   getAccountById,
   getAddressesByAccountId,
@@ -28,40 +27,11 @@ import type { Pool } from "pg";
 import type fastify from "fastify";
 
 const GAME_API_PREFIX = "/v1/game";
-const VALID_LEADERBOARD_PERIODS = ["all_time", "weekly", "daily", "monthly"] as const;
 
 export const apiCommon = async (
   server: fastify.FastifyInstance,
   dbConn: Pool
 ): Promise<void> => {
-  // Leaderboard Endpoint
-  const LeaderboardResponseSchema = Type.Array(
-    Type.Object({
-      name: Type.String(),
-      score: Type.Number(),
-    })
-  );
-
-  server.get<{
-    Reply: Static<typeof LeaderboardResponseSchema>;
-  }>("/api/leaderboard", async (request, reply) => {
-    const leaderboardData = await runPreparedQuery(
-      getLeaderboard.run({ limit: 10 }, dbConn),
-      "getLeaderboard"
-    );
-    const leaderboard = leaderboardData.map((row) => {
-      let displayName = row.username;
-      if ((!displayName || displayName === row.wallet) && row.wallet) {
-        const w = row.wallet;
-        displayName = w.length > 10 ? `${w.slice(0, 6)}...${w.slice(-4)}` : w;
-      }
-      return {
-        name: displayName || "Anonymous",
-        score: row.score ?? 0,
-      };
-    });
-    reply.send(leaderboard);
-  });
 
   // Address Endpoint
   const AddressParamsSchema = Type.Object({
@@ -198,34 +168,59 @@ export const apiCommon = async (
   });
 
   const LeaderboardV1ResponseSchema = Type.Object({
-    period: Type.String(),
+    start_date: Type.String(),
+    end_date: Type.String(),
     total_players: Type.Number(),
     entries: Type.Array(LeaderboardEntrySchema),
   });
 
   server.get<{
-    Querystring: { period?: string; limit?: string; offset?: string };
+    Querystring: {
+      limit?: string;
+      offset?: string;
+      start_date?: string;
+      end_date?: string;
+    };
     Reply: Static<typeof LeaderboardV1ResponseSchema>;
   }>(`${GAME_API_PREFIX}/leaderboard`, async (request, reply) => {
-    const period = VALID_LEADERBOARD_PERIODS.includes(
-      request.query?.period as (typeof VALID_LEADERBOARD_PERIODS)[number]
-    )
-      ? (request.query.period as (typeof VALID_LEADERBOARD_PERIODS)[number])
-      : "all_time";
-    const limit = Math.min(Math.max(1, parseInt(request.query?.limit ?? "50", 10) || 50), 100);
-    const offset = Math.max(0, parseInt(request.query?.offset ?? "0", 10) || 0);
+    const { limit: rawLimit, offset: rawOffset, start_date, end_date } = request.query;
+    const limit = Math.min(Math.max(1, parseInt(rawLimit ?? "50", 10) || 50), 100);
+    const offset = Math.max(0, parseInt(rawOffset ?? "0", 10) || 0);
+
+    const maybeStartDate =
+      start_date && !Number.isNaN(new Date(start_date).getTime())
+        ? new Date(start_date)
+        : undefined;
+    const maybeEndDate =
+      end_date && !Number.isNaN(new Date(end_date).getTime())
+        ? new Date(end_date)
+        : undefined;
+
+    const effectiveStartDate =
+      maybeStartDate ?? new Date(Date.now() - 365 * 24 * 60 * 60 * 1000);
+    const effectiveEndDate = maybeEndDate ?? new Date();
+
+    const startIso = effectiveStartDate.toISOString();
+    const endIso = effectiveEndDate.toISOString();
 
     const totalRows = (await runPreparedQuery(
-      getLeaderboardTotalPlayers.run({ period }, dbConn),
+      getLeaderboardTotalPlayers.run(
+        { start_date: startIso, end_date: endIso } as any,
+        dbConn
+      ),
       "getLeaderboardTotalPlayers"
     )) as IGetLeaderboardTotalPlayersResult[];
     const [totalRow] = totalRows;
     const entries = (await runPreparedQuery(
-      getLeaderboardEntries.run({ period, limit, offset }, dbConn),
+      getLeaderboardEntries.run(
+        { start_date: startIso, end_date: endIso, limit, offset } as any,
+        dbConn
+      ),
       "getLeaderboardEntries"
     )) as IGetLeaderboardEntriesResult[];
     reply.send({
-      period,
+      start_date: startIso,
+      end_date: endIso,
       total_players: totalRow?.total_players ?? 0,
       entries: entries.map((e: IGetLeaderboardEntriesResult) => ({
         rank: e.rank ?? 0,
@@ -255,13 +250,33 @@ export const apiCommon = async (
     identity: UserIdentitySchema,
     stats: UserStatsSchema,
     achievements: Type.Array(Type.String()),
+    start_date: Type.String(),
+    end_date: Type.String(),
   });
 
   server.get<{
     Params: { address: string };
+    Querystring: { start_date?: string; end_date?: string };
     Reply: Static<typeof UserProfileV1ResponseSchema> | { error: string };
   }>(`${GAME_API_PREFIX}/users/:address`, async (request, reply) => {
     const { address } = request.params;
+    const { start_date, end_date } = request.query;
+
+    const maybeStartDate =
+      start_date && !Number.isNaN(new Date(start_date).getTime())
+        ? new Date(start_date)
+        : undefined;
+    const maybeEndDate =
+      end_date && !Number.isNaN(new Date(end_date).getTime())
+        ? new Date(end_date)
+        : undefined;
+
+    const effectiveStartDate =
+      maybeStartDate ?? new Date(Date.now() - 365 * 24 * 60 * 60 * 1000);
+    const effectiveEndDate = maybeEndDate ?? new Date();
+
+    const startIso = effectiveStartDate.toISOString();
+    const endIso = effectiveEndDate.toISOString();
     const identityRows = (await runPreparedQuery(
       getIdentityResolution.run({ address }, dbConn),
       "getIdentityResolution"
@@ -278,7 +293,14 @@ export const apiCommon = async (
     )) as IGetAccountProfileResult[];
 
     const statsRows = (await runPreparedQuery(
-      getUserProfileStats.run({ account_id: identityRow.account_id }, dbConn),
+      getUserProfileStats.run(
+        {
+          account_id: identityRow.account_id,
+          start_date: startIso,
+          end_date: endIso,
+        } as any,
+        dbConn
+      ),
       "getUserProfileStats"
     )) as IGetUserProfileStatsResult[];
     const [statsRow] = statsRows;
@@ -301,6 +323,8 @@ export const apiCommon = async (
         matches_played: statsRow?.matches_played ?? 0,
       },
       achievements: achievementRows.map((r: IGetUserAchievementIdsResult) => r.achievement_id),
+      start_date: startIso,
+      end_date: endIso,
     });
   });
 };

@@ -112,12 +112,8 @@ SELECT COUNT(*)::int AS total_players
 FROM (
   SELECT account_id, MAX(score) AS best
   FROM score_entries
-  WHERE achieved_at >= CASE
-    WHEN :period! = 'daily' THEN date_trunc('day', NOW())
-    WHEN :period! = 'weekly' THEN date_trunc('week', NOW())
-    WHEN :period! = 'monthly' THEN date_trunc('month', NOW())
-    ELSE '1970-01-01'::timestamptz
-  END
+  WHERE achieved_at >= COALESCE(:start_date::timestamptz, NOW() - INTERVAL '1 year')
+  AND achieved_at <= COALESCE(:end_date::timestamptz, NOW())
   GROUP BY account_id
 ) t;
 
@@ -125,12 +121,8 @@ FROM (
 WITH best_scores AS (
   SELECT account_id, MAX(score) AS score
   FROM score_entries
-  WHERE achieved_at >= CASE
-    WHEN :period! = 'daily' THEN date_trunc('day', NOW())
-    WHEN :period! = 'weekly' THEN date_trunc('week', NOW())
-    WHEN :period! = 'monthly' THEN date_trunc('month', NOW())
-    ELSE '1970-01-01'::timestamptz
-  END
+  WHERE achieved_at >= COALESCE(:start_date::timestamptz, NOW() - INTERVAL '1 year')
+  AND achieved_at <= COALESCE(:end_date::timestamptz, NOW())
   GROUP BY account_id
 ),
 ranked AS (
@@ -158,9 +150,24 @@ WHERE a.primary_address = :address!
 /* @name GetUserProfileStats */
 SELECT
   (SELECT COUNT(*)::int + 1 FROM (
-    SELECT account_id, MAX(score) AS best FROM score_entries GROUP BY account_id
-  ) t WHERE t.best > (SELECT COALESCE(MAX(score), -1) FROM score_entries WHERE account_id = :account_id!)) AS rank,
-  (SELECT MAX(score) FROM score_entries WHERE account_id = :account_id!) AS score,
+    SELECT account_id, MAX(score) AS best
+    FROM score_entries
+    WHERE achieved_at >= COALESCE(:start_date::timestamptz, NOW() - INTERVAL '1 year')
+      AND achieved_at <= COALESCE(:end_date::timestamptz, NOW())
+    GROUP BY account_id
+  ) t WHERE t.best > (
+    SELECT COALESCE(MAX(score), -1)
+    FROM score_entries
+    WHERE account_id = :account_id!
+      AND achieved_at >= COALESCE(:start_date::timestamptz, NOW() - INTERVAL '1 year')
+      AND achieved_at <= COALESCE(:end_date::timestamptz, NOW())
+  )) AS rank,
+  (SELECT MAX(score)
+   FROM score_entries
+   WHERE account_id = :account_id!
+     AND achieved_at >= COALESCE(:start_date::timestamptz, NOW() - INTERVAL '1 year')
+     AND achieved_at <= COALESCE(:end_date::timestamptz, NOW())
+  ) AS score,
   (SELECT COALESCE(games_won, 0) + COALESCE(games_lost, 0) FROM user_game_state WHERE account_id = :account_id!) AS matches_played;
 
 /* @name GetUserAchievementIds */
