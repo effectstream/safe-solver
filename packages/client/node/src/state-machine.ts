@@ -17,7 +17,6 @@ import {
   getAccountProfile,
   insertScoreEntry,
   unlockAchievement,
-  getAchievementIdsByPrefix,
   upsertDelegation,
 } from "@safe-solver/database";
 import type { WalletAddress, AddressType } from "@paimaexample/utils";
@@ -178,6 +177,28 @@ stm.addStateTransition("checkSafe", function* (data) {
   }
 });
 
+// Achievements: Reach Level 1–10, Reach Level 15 (unlock when game is won at that level)
+const levelAchievements: { minLevel: number; id: string }[] = [
+  { minLevel: 1, id: "reach_level_1" },
+  { minLevel: 2, id: "reach_level_2" },
+  { minLevel: 3, id: "reach_level_3" },
+  { minLevel: 4, id: "reach_level_4" },
+  { minLevel: 5, id: "reach_level_5" },
+  { minLevel: 6, id: "reach_level_6" },
+  { minLevel: 7, id: "reach_level_7" },
+  { minLevel: 8, id: "reach_level_8" },
+  { minLevel: 9, id: "reach_level_9" },
+  { minLevel: 10, id: "reach_level_10" },
+  { minLevel: 15, id: "reach_level_15" },
+  { minLevel: 20, id: "reach_level_20" },
+  { minLevel: 25, id: "reach_level_25" },
+  { minLevel: 30, id: "reach_level_30" },
+  { minLevel: 35, id: "reach_level_35" },
+  { minLevel: 40, id: "reach_level_40" },
+  { minLevel: 45, id: "reach_level_45" },
+  { minLevel: 50, id: "reach_level_50" },
+];
+
 stm.addStateTransition("submitScore", function* (data) {
   const accountId = yield* getAccountId(data.signerAddress, data.signerAddressType);
   if (accountId === null) return;
@@ -197,27 +218,6 @@ stm.addStateTransition("submitScore", function* (data) {
 
   console.log(`🎉 [submitScore] Account: ${accountId}, Adding Score: ${currentScore}, Level: ${level}`);
 
-  // Achievements: Reach Level 1–10, Reach Level 15 (unlock when game is won at that level)
-  const levelAchievements: { minLevel: number; id: string }[] = [
-    { minLevel: 1, id: "reach_level_1" },
-    { minLevel: 2, id: "reach_level_2" },
-    { minLevel: 3, id: "reach_level_3" },
-    { minLevel: 4, id: "reach_level_4" },
-    { minLevel: 5, id: "reach_level_5" },
-    { minLevel: 6, id: "reach_level_6" },
-    { minLevel: 7, id: "reach_level_7" },
-    { minLevel: 8, id: "reach_level_8" },
-    { minLevel: 9, id: "reach_level_9" },
-    { minLevel: 10, id: "reach_level_10" },
-    { minLevel: 15, id: "reach_level_15" },
-    { minLevel: 20, id: "reach_level_20" },
-    { minLevel: 25, id: "reach_level_25" },
-    { minLevel: 30, id: "reach_level_30" },
-    { minLevel: 35, id: "reach_level_35" },
-    { minLevel: 40, id: "reach_level_40" },
-    { minLevel: 45, id: "reach_level_45" },
-    { minLevel: 50, id: "reach_level_50" },
-  ];
   for (const { minLevel, id } of levelAchievements) {
     if (level > minLevel) {
       yield* World.resolve(unlockAchievement, { account_id: accountId, achievement_id: id });

@@ -3,3 +3,4 @@ midnight-level-db-*/
 contract-eip-1155/src/managed
 contract.json
 contract-midnight-data.json
+contract-midnight-data/src/managed

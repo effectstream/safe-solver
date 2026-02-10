@@ -4,14 +4,28 @@ import * as midnightDataContractInfo from "@safe-solver/midnight-contract-midnig
 import { ENV } from "@paimaexample/utils/node-env";
 import * as midnightDataContract from "@safe-solver/midnight-contract-midnight-data/contract";
 import { CryptoManager } from "@paimaexample/crypto";
+import { dirname, resolve } from "@std/path";
+import { midnightNetworkConfig } from "@paimaexample/midnight-contracts/midnight-env";
 
 const isTestnet = ENV.EFFECTSTREAM_ENV === "testnet";
+const currentDir = dirname(new URL(import.meta.url).pathname);
+const baseDir = resolve(currentDir, "..","..","..","shared","contracts","midnight-contracts");
 
+console.log("baseDir", { baseDir });
 const {
   contractInfo: contractInfo0,
   contractAddress: contractAddress0,
   zkConfigPath: zkConfigPath0,
-} = readMidnightContract("midnight-data", "contract-midnight-data.json");
+} = readMidnightContract(
+  "contract-midnight-data",
+  // const midnightContractsDir = resolve(currentDir, "..", "..", "shared", "contracts", "midnight");
+  {
+    baseDir,
+    networkId: midnightNetworkConfig.id,
+    // "contract-midnight-data.json"
+    // contractFileName: "contract-midnight-data.json",
+  },
+);
 /** MIDNIGHT-READ-CONTRACT-BLOCK  */
 
 const GENESIS_MINT_WALLET_SEED =
@@ -37,7 +51,7 @@ const midnightAdapterConfig0 = {
   walletFundingTimeoutSeconds: 300, // Increase wallet funding timeout to 5 minutes
 };
 
-class EVMMidnightAdapter extends MidnightAdapter {
+class EVMMidnightAdapter extends MidnightAdapter<any> {
   // @ts-ignore next line mismatch super type
   override async verifySignature(input: DefaultBatcherInput): Promise<boolean> {
     const {target, address, addressType, timestamp, signature} = input;
@@ -60,7 +74,7 @@ export const midnightAdapter_midnight_data = new EVMMidnightAdapter(
 );
 
 
-export const midnightAdapters: Record<string, MidnightAdapter> = {
+export const midnightAdapters: Record<string, MidnightAdapter<any>> = {
   // @ts-ignore next line mismatch super type
   "midnight-data": midnightAdapter_midnight_data,
 };

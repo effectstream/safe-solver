@@ -469,17 +469,32 @@ export interface IUpsertDelegationQuery {
   result: IUpsertDelegationResult;
 }
 
-const upsertDelegationIR: any = {"usedParamSet":{"account_id":true,"delegate_to_address":true},"params":[{"name":"account_id","required":true,"transform":{"type":"scalar"},"locs":[{"a":80,"b":91}]},{"name":"delegate_to_address","required":true,"transform":{"type":"scalar"},"locs":[{"a":94,"b":114}]}],"statement":"INSERT INTO delegations (account_id, delegate_to_address, delegated_at)\nVALUES (:account_id!, :delegate_to_address!, NOW())\nON CONFLICT (account_id) DO UPDATE\nSET delegate_to_address = EXCLUDED.delegate_to_address,\n    delegated_at = NOW()\nRETURNING account_id, delegate_to_address, delegated_at"};
+const upsertDelegationIR: any = {"usedParamSet":{"account_id":true,"delegate_to_address":true},"params":[{"name":"account_id","required":true,"transform":{"type":"scalar"},"locs":[{"a":101,"b":112}]},{"name":"delegate_to_address","required":true,"transform":{"type":"scalar"},"locs":[{"a":115,"b":135}]}],"statement":"WITH upsert AS (\n  INSERT INTO delegations (account_id, delegate_to_address, delegated_at)\n  VALUES (:account_id!, :delegate_to_address!, NOW())\n  ON CONFLICT (account_id) DO UPDATE\n  SET delegate_to_address = EXCLUDED.delegate_to_address,\n      delegated_at = NOW()\n  RETURNING account_id, delegate_to_address, delegated_at\n),\nupdated_scores AS (\n  UPDATE score_entries se\n  SET delegated_to = u.delegate_to_address\n  FROM upsert u\n  WHERE se.account_id = u.account_id\n),\nupdated_achievements AS (\n  UPDATE achievement_completions ac\n  SET delegated_to = u.delegate_to_address\n  FROM upsert u\n  WHERE ac.account_id = u.account_id\n)\nSELECT account_id, delegate_to_address, delegated_at FROM upsert"};
 
 /**
  * Query generated from SQL:
  * ```
- * INSERT INTO delegations (account_id, delegate_to_address, delegated_at)
- * VALUES (:account_id!, :delegate_to_address!, NOW())
- * ON CONFLICT (account_id) DO UPDATE
- * SET delegate_to_address = EXCLUDED.delegate_to_address,
- *     delegated_at = NOW()
- * RETURNING account_id, delegate_to_address, delegated_at
+ * WITH upsert AS (
+ *   INSERT INTO delegations (account_id, delegate_to_address, delegated_at)
+ *   VALUES (:account_id!, :delegate_to_address!, NOW())
+ *   ON CONFLICT (account_id) DO UPDATE
+ *   SET delegate_to_address = EXCLUDED.delegate_to_address,
+ *       delegated_at = NOW()
+ *   RETURNING account_id, delegate_to_address, delegated_at
+ * ),
+ * updated_scores AS (
+ *   UPDATE score_entries se
+ *   SET delegated_to = u.delegate_to_address
+ *   FROM upsert u
+ *   WHERE se.account_id = u.account_id
+ * ),
+ * updated_achievements AS (
+ *   UPDATE achievement_completions ac
+ *   SET delegated_to = u.delegate_to_address
+ *   FROM upsert u
+ *   WHERE ac.account_id = u.account_id
+ * )
+ * SELECT account_id, delegate_to_address, delegated_at FROM upsert
  * ```
  */
 export const upsertDelegation = new PreparedQuery<IUpsertDelegationParams,IUpsertDelegationResult>(upsertDelegationIR);
@@ -561,16 +576,21 @@ export interface IGetAchievementsWithCompletedCountQuery {
   result: IGetAchievementsWithCompletedCountResult;
 }
 
-const getAchievementsWithCompletedCountIR: any = {"usedParamSet":{},"params":[],"statement":"SELECT a.order_id, a.id, a.name, a.description, a.icon_url, COUNT(ac.account_id)::int AS completed_count\nFROM achievements a\nLEFT JOIN achievement_completions ac ON a.id = ac.achievement_id\nGROUP BY a.order_id, a.id, a.name, a.description, a.icon_url\nORDER BY a.order_id ASC"};
+const getAchievementsWithCompletedCountIR: any = {"usedParamSet":{},"params":[],"statement":"SELECT ach.order_id,\n       ach.id,\n       ach.name,\n       ach.description,\n       ach.icon_url,\n       COUNT(DISTINCT ac.delegated_to)::int AS completed_count\nFROM achievements ach\nLEFT JOIN achievement_completions ac ON ach.id = ac.achievement_id\nGROUP BY ach.order_id, ach.id, ach.name, ach.description, ach.icon_url\nORDER BY ach.order_id ASC"};
 
 /**
  * Query generated from SQL:
  * ```
- * SELECT a.order_id, a.id, a.name, a.description, a.icon_url, COUNT(ac.account_id)::int AS completed_count
- * FROM achievements a
- * LEFT JOIN achievement_completions ac ON a.id = ac.achievement_id
- * GROUP BY a.order_id, a.id, a.name, a.description, a.icon_url
- * ORDER BY a.order_id ASC
+ * SELECT ach.order_id,
+ *        ach.id,
+ *        ach.name,
+ *        ach.description,
+ *        ach.icon_url,
+ *        COUNT(DISTINCT ac.delegated_to)::int AS completed_count
+ * FROM achievements ach
+ * LEFT JOIN achievement_completions ac ON ach.id = ac.achievement_id
+ * GROUP BY ach.order_id, ach.id, ach.name, ach.description, ach.icon_url
+ * ORDER BY ach.order_id ASC
  * ```
  */
 export const getAchievementsWithCompletedCount = new PreparedQuery<IGetAchievementsWithCompletedCountParams,IGetAchievementsWithCompletedCountResult>(getAchievementsWithCompletedCountIR);
@@ -587,6 +607,7 @@ export interface IInsertScoreEntryParams {
 export interface IInsertScoreEntryResult {
   account_id: number;
   achieved_at: Date;
+  delegated_to: string;
   id: number;
   score: string;
 }
@@ -597,14 +618,21 @@ export interface IInsertScoreEntryQuery {
   result: IInsertScoreEntryResult;
 }
 
-const insertScoreEntryIR: any = {"usedParamSet":{"account_id":true,"score":true,"achieved_at":true},"params":[{"name":"account_id","required":true,"transform":{"type":"scalar"},"locs":[{"a":67,"b":78}]},{"name":"score","required":true,"transform":{"type":"scalar"},"locs":[{"a":81,"b":87}]},{"name":"achieved_at","required":false,"transform":{"type":"scalar"},"locs":[{"a":99,"b":110}]}],"statement":"INSERT INTO score_entries (account_id, score, achieved_at)\nVALUES (:account_id!, :score!, COALESCE(:achieved_at, NOW()))\nRETURNING id, account_id, score, achieved_at"};
+const insertScoreEntryIR: any = {"usedParamSet":{"account_id":true,"score":true,"achieved_at":true},"params":[{"name":"account_id","required":true,"transform":{"type":"scalar"},"locs":[{"a":82,"b":93},{"a":350,"b":361}]},{"name":"score","required":true,"transform":{"type":"scalar"},"locs":[{"a":186,"b":192}]},{"name":"achieved_at","required":false,"transform":{"type":"scalar"},"locs":[{"a":215,"b":226}]}],"statement":"INSERT INTO score_entries (account_id, delegated_to, score, achieved_at)\nSELECT\n  :account_id! AS account_id,\n  COALESCE(del.delegate_to_address, acc.primary_address) AS delegated_to,\n  :score! AS score,\n  COALESCE(:achieved_at, NOW()) AS achieved_at\nFROM effectstream.accounts acc\nLEFT JOIN delegations del ON del.account_id = acc.id\nWHERE acc.id = :account_id!\nRETURNING id, account_id, delegated_to, score, achieved_at"};
 
 /**
  * Query generated from SQL:
  * ```
- * INSERT INTO score_entries (account_id, score, achieved_at)
- * VALUES (:account_id!, :score!, COALESCE(:achieved_at, NOW()))
- * RETURNING id, account_id, score, achieved_at
+ * INSERT INTO score_entries (account_id, delegated_to, score, achieved_at)
+ * SELECT
+ *   :account_id! AS account_id,
+ *   COALESCE(del.delegate_to_address, acc.primary_address) AS delegated_to,
+ *   :score! AS score,
+ *   COALESCE(:achieved_at, NOW()) AS achieved_at
+ * FROM effectstream.accounts acc
+ * LEFT JOIN delegations del ON del.account_id = acc.id
+ * WHERE acc.id = :account_id!
+ * RETURNING id, account_id, delegated_to, score, achieved_at
  * ```
  */
 export const insertScoreEntry = new PreparedQuery<IInsertScoreEntryParams,IInsertScoreEntryResult>(insertScoreEntryIR);
@@ -621,6 +649,7 @@ export interface IUnlockAchievementParams {
 export interface IUnlockAchievementResult {
   account_id: number;
   achievement_id: string;
+  delegated_to: string;
   unlocked_at: Date;
 }
 
@@ -630,15 +659,22 @@ export interface IUnlockAchievementQuery {
   result: IUnlockAchievementResult;
 }
 
-const unlockAchievementIR: any = {"usedParamSet":{"account_id":true,"achievement_id":true,"unlocked_at":true},"params":[{"name":"account_id","required":true,"transform":{"type":"scalar"},"locs":[{"a":86,"b":97}]},{"name":"achievement_id","required":true,"transform":{"type":"scalar"},"locs":[{"a":100,"b":115}]},{"name":"unlocked_at","required":false,"transform":{"type":"scalar"},"locs":[{"a":127,"b":138}]}],"statement":"INSERT INTO achievement_completions (account_id, achievement_id, unlocked_at)\nVALUES (:account_id!, :achievement_id!, COALESCE(:unlocked_at, NOW()))\nON CONFLICT (account_id, achievement_id) DO NOTHING\nRETURNING account_id, achievement_id, unlocked_at"};
+const unlockAchievementIR: any = {"usedParamSet":{"account_id":true,"achievement_id":true,"unlocked_at":true},"params":[{"name":"account_id","required":true,"transform":{"type":"scalar"},"locs":[{"a":101,"b":112},{"a":387,"b":398}]},{"name":"achievement_id","required":true,"transform":{"type":"scalar"},"locs":[{"a":131,"b":146}]},{"name":"unlocked_at","required":false,"transform":{"type":"scalar"},"locs":[{"a":252,"b":263}]}],"statement":"INSERT INTO achievement_completions (account_id, achievement_id, delegated_to, unlocked_at)\nSELECT\n  :account_id! AS account_id,\n  :achievement_id! AS achievement_id,\n  COALESCE(del.delegate_to_address, acc.primary_address) AS delegated_to,\n  COALESCE(:unlocked_at, NOW()) AS unlocked_at\nFROM effectstream.accounts acc\nLEFT JOIN delegations del ON del.account_id = acc.id\nWHERE acc.id = :account_id!\nON CONFLICT (account_id, achievement_id) DO NOTHING\nRETURNING account_id, achievement_id, delegated_to, unlocked_at"};
 
 /**
  * Query generated from SQL:
  * ```
- * INSERT INTO achievement_completions (account_id, achievement_id, unlocked_at)
- * VALUES (:account_id!, :achievement_id!, COALESCE(:unlocked_at, NOW()))
+ * INSERT INTO achievement_completions (account_id, achievement_id, delegated_to, unlocked_at)
+ * SELECT
+ *   :account_id! AS account_id,
+ *   :achievement_id! AS achievement_id,
+ *   COALESCE(del.delegate_to_address, acc.primary_address) AS delegated_to,
+ *   COALESCE(:unlocked_at, NOW()) AS unlocked_at
+ * FROM effectstream.accounts acc
+ * LEFT JOIN delegations del ON del.account_id = acc.id
+ * WHERE acc.id = :account_id!
  * ON CONFLICT (account_id, achievement_id) DO NOTHING
- * RETURNING account_id, achievement_id, unlocked_at
+ * RETURNING account_id, achievement_id, delegated_to, unlocked_at
  * ```
  */
 export const unlockAchievement = new PreparedQuery<IUnlockAchievementParams,IUnlockAchievementResult>(unlockAchievementIR);
@@ -661,18 +697,19 @@ export interface IGetLeaderboardTotalPlayersQuery {
   result: IGetLeaderboardTotalPlayersResult;
 }
 
-const getLeaderboardTotalPlayersIR: any = {"usedParamSet":{"start_date":true,"end_date":true},"params":[{"name":"start_date","required":false,"transform":{"type":"scalar"},"locs":[{"a":138,"b":148}]},{"name":"end_date","required":false,"transform":{"type":"scalar"},"locs":[{"a":221,"b":229}]}],"statement":"SELECT COUNT(*)::int AS total_players\nFROM (\n  SELECT account_id, MAX(score) AS best\n  FROM score_entries\n  WHERE achieved_at >= COALESCE(:start_date::timestamptz, NOW() - INTERVAL '1 year')\n  AND achieved_at <= COALESCE(:end_date::timestamptz, NOW())\n  GROUP BY account_id\n) t"};
+const getLeaderboardTotalPlayersIR: any = {"usedParamSet":{"start_date":true,"end_date":true},"params":[{"name":"start_date","required":false,"transform":{"type":"scalar"},"locs":[{"a":212,"b":222}]},{"name":"end_date","required":false,"transform":{"type":"scalar"},"locs":[{"a":297,"b":305}]}],"statement":"SELECT COUNT(*)::int AS total_players\nFROM (\n  -- Count unique delegated identities (main wallets) that have a score\n  SELECT delegated_to, MAX(score) AS best\n  FROM score_entries\n  WHERE achieved_at >= COALESCE(:start_date::timestamptz, NOW() - INTERVAL '1 year')\n    AND achieved_at <= COALESCE(:end_date::timestamptz, NOW())\n  GROUP BY delegated_to\n) t"};
 
 /**
  * Query generated from SQL:
  * ```
  * SELECT COUNT(*)::int AS total_players
  * FROM (
- *   SELECT account_id, MAX(score) AS best
+ *   -- Count unique delegated identities (main wallets) that have a score
+ *   SELECT delegated_to, MAX(score) AS best
  *   FROM score_entries
  *   WHERE achieved_at >= COALESCE(:start_date::timestamptz, NOW() - INTERVAL '1 year')
- *   AND achieved_at <= COALESCE(:end_date::timestamptz, NOW())
- *   GROUP BY account_id
+ *     AND achieved_at <= COALESCE(:end_date::timestamptz, NOW())
+ *   GROUP BY delegated_to
  * ) t
  * ```
  */
@@ -690,7 +727,7 @@ export interface IGetLeaderboardEntriesParams {
 /** 'GetLeaderboardEntries' return type */
 export interface IGetLeaderboardEntriesResult {
   achievements_unlocked: number | null;
-  address: string | null;
+  address: string;
   display_name: string | null;
   player_id: string | null;
   rank: number | null;
@@ -703,28 +740,61 @@ export interface IGetLeaderboardEntriesQuery {
   result: IGetLeaderboardEntriesResult;
 }
 
-const getLeaderboardEntriesIR: any = {"usedParamSet":{"start_date":true,"end_date":true,"limit":true,"offset":true},"params":[{"name":"start_date","required":false,"transform":{"type":"scalar"},"locs":[{"a":116,"b":126}]},{"name":"end_date","required":false,"transform":{"type":"scalar"},"locs":[{"a":199,"b":207}]},{"name":"limit","required":true,"transform":{"type":"scalar"},"locs":[{"a":860,"b":866}]},{"name":"offset","required":true,"transform":{"type":"scalar"},"locs":[{"a":875,"b":882}]}],"statement":"WITH best_scores AS (\n  SELECT account_id, MAX(score) AS score\n  FROM score_entries\n  WHERE achieved_at >= COALESCE(:start_date::timestamptz, NOW() - INTERVAL '1 year')\n  AND achieved_at <= COALESCE(:end_date::timestamptz, NOW())\n  GROUP BY account_id\n),\nranked AS (\n  SELECT account_id, score, ROW_NUMBER() OVER (ORDER BY score DESC)::int AS rank\n  FROM best_scores\n)\nSELECT r.rank, COALESCE(d.delegate_to_address, a.primary_address) AS address, COALESCE(u.player_id, 'user_' || r.account_id) AS player_id, u.name AS display_name, r.score,\n  (SELECT COUNT(*)::int FROM achievement_completions ac WHERE ac.account_id = r.account_id) AS achievements_unlocked\nFROM ranked r\nJOIN effectstream.accounts a ON a.id = r.account_id\nLEFT JOIN delegations d ON d.account_id = r.account_id\nLEFT JOIN user_game_state u ON u.account_id = r.account_id\nORDER BY r.rank\nLIMIT :limit! OFFSET :offset!"};
+const getLeaderboardEntriesIR: any = {"usedParamSet":{"start_date":true,"end_date":true,"limit":true,"offset":true},"params":[{"name":"start_date","required":false,"transform":{"type":"scalar"},"locs":[{"a":235,"b":245},{"a":1061,"b":1071}]},{"name":"end_date","required":false,"transform":{"type":"scalar"},"locs":[{"a":320,"b":328},{"a":1151,"b":1159}]},{"name":"limit","required":true,"transform":{"type":"scalar"},"locs":[{"a":1607,"b":1613}]},{"name":"offset","required":true,"transform":{"type":"scalar"},"locs":[{"a":1622,"b":1629}]}],"statement":"WITH identity_accounts AS (\n  -- For each delegated identity (main wallet), collect per-account total scores\n  SELECT\n    delegated_to,\n    account_id,\n    SUM(score) AS total_score\n  FROM score_entries\n  WHERE achieved_at >= COALESCE(:start_date::timestamptz, NOW() - INTERVAL '1 year')\n    AND achieved_at <= COALESCE(:end_date::timestamptz, NOW())\n  GROUP BY delegated_to, account_id\n),\nidentity_sums AS (\n  -- Total score per delegated identity (main wallet)\n  SELECT\n    delegated_to,\n    SUM(total_score) AS score\n  FROM identity_accounts\n  GROUP BY delegated_to\n),\nranked AS (\n  -- Rank identities by their total score\n  SELECT\n    delegated_to,\n    score,\n    ROW_NUMBER() OVER (ORDER BY score DESC)::int AS rank\n  FROM identity_sums\n)\nSELECT\n  r.rank,\n  r.delegated_to AS address,\n  COALESCE(u.player_id, 'user_' || ia.account_id) AS player_id,\n  u.name AS display_name,\n  r.score,\n  (\n    SELECT COUNT(DISTINCT ac.achievement_id)::int\n    FROM achievement_completions ac\n    WHERE ac.delegated_to = r.delegated_to\n      AND ac.unlocked_at >= COALESCE(:start_date::timestamptz, NOW() - INTERVAL '1 year')\n      AND ac.unlocked_at <= COALESCE(:end_date::timestamptz, NOW())\n  ) AS achievements_unlocked\nFROM ranked r\nLEFT JOIN LATERAL (\n  -- Choose a representative account for identity metadata (player_id, display_name)\n  SELECT ia_inner.account_id\n  FROM identity_accounts ia_inner\n  WHERE ia_inner.delegated_to = r.delegated_to\n  ORDER BY ia_inner.total_score DESC, ia_inner.account_id ASC\n  LIMIT 1\n) ia ON TRUE\nLEFT JOIN user_game_state u ON u.account_id = ia.account_id\nORDER BY r.rank\nLIMIT :limit! OFFSET :offset!"};
 
 /**
  * Query generated from SQL:
  * ```
- * WITH best_scores AS (
- *   SELECT account_id, MAX(score) AS score
+ * WITH identity_accounts AS (
+ *   -- For each delegated identity (main wallet), collect per-account total scores
+ *   SELECT
+ *     delegated_to,
+ *     account_id,
+ *     SUM(score) AS total_score
  *   FROM score_entries
  *   WHERE achieved_at >= COALESCE(:start_date::timestamptz, NOW() - INTERVAL '1 year')
- *   AND achieved_at <= COALESCE(:end_date::timestamptz, NOW())
- *   GROUP BY account_id
+ *     AND achieved_at <= COALESCE(:end_date::timestamptz, NOW())
+ *   GROUP BY delegated_to, account_id
+ * ),
+ * identity_sums AS (
+ *   -- Total score per delegated identity (main wallet)
+ *   SELECT
+ *     delegated_to,
+ *     SUM(total_score) AS score
+ *   FROM identity_accounts
+ *   GROUP BY delegated_to
  * ),
  * ranked AS (
- *   SELECT account_id, score, ROW_NUMBER() OVER (ORDER BY score DESC)::int AS rank
- *   FROM best_scores
+ *   -- Rank identities by their total score
+ *   SELECT
+ *     delegated_to,
+ *     score,
+ *     ROW_NUMBER() OVER (ORDER BY score DESC)::int AS rank
+ *   FROM identity_sums
  * )
- * SELECT r.rank, COALESCE(d.delegate_to_address, a.primary_address) AS address, COALESCE(u.player_id, 'user_' || r.account_id) AS player_id, u.name AS display_name, r.score,
- *   (SELECT COUNT(*)::int FROM achievement_completions ac WHERE ac.account_id = r.account_id) AS achievements_unlocked
+ * SELECT
+ *   r.rank,
+ *   r.delegated_to AS address,
+ *   COALESCE(u.player_id, 'user_' || ia.account_id) AS player_id,
+ *   u.name AS display_name,
+ *   r.score,
+ *   (
+ *     SELECT COUNT(DISTINCT ac.achievement_id)::int
+ *     FROM achievement_completions ac
+ *     WHERE ac.delegated_to = r.delegated_to
+ *       AND ac.unlocked_at >= COALESCE(:start_date::timestamptz, NOW() - INTERVAL '1 year')
+ *       AND ac.unlocked_at <= COALESCE(:end_date::timestamptz, NOW())
+ *   ) AS achievements_unlocked
  * FROM ranked r
- * JOIN effectstream.accounts a ON a.id = r.account_id
- * LEFT JOIN delegations d ON d.account_id = r.account_id
- * LEFT JOIN user_game_state u ON u.account_id = r.account_id
+ * LEFT JOIN LATERAL (
+ *   -- Choose a representative account for identity metadata (player_id, display_name)
+ *   SELECT ia_inner.account_id
+ *   FROM identity_accounts ia_inner
+ *   WHERE ia_inner.delegated_to = r.delegated_to
+ *   ORDER BY ia_inner.total_score DESC, ia_inner.account_id ASC
+ *   LIMIT 1
+ * ) ia ON TRUE
+ * LEFT JOIN user_game_state u ON u.account_id = ia.account_id
  * ORDER BY r.rank
  * LIMIT :limit! OFFSET :offset!
  * ```
@@ -787,32 +857,48 @@ export interface IGetUserProfileStatsQuery {
   result: IGetUserProfileStatsResult;
 }
 
-const getUserProfileStatsIR: any = {"usedParamSet":{"start_date":true,"end_date":true,"account_id":true},"params":[{"name":"start_date","required":false,"transform":{"type":"scalar"},"locs":[{"a":141,"b":151},{"a":435,"b":445},{"a":678,"b":688}]},{"name":"end_date","required":false,"transform":{"type":"scalar"},"locs":[{"a":228,"b":236},{"a":522,"b":530},{"a":764,"b":772}]},{"name":"account_id","required":true,"transform":{"type":"scalar"},"locs":[{"a":388,"b":399},{"a":632,"b":643},{"a":908,"b":919}]}],"statement":"SELECT\n  (SELECT COUNT(*)::int + 1 FROM (\n    SELECT account_id, MAX(score) AS best\n    FROM score_entries\n    WHERE achieved_at >= COALESCE(:start_date::timestamptz, NOW() - INTERVAL '1 year')\n      AND achieved_at <= COALESCE(:end_date::timestamptz, NOW())\n    GROUP BY account_id\n  ) t WHERE t.best > (\n    SELECT COALESCE(MAX(score), -1)\n    FROM score_entries\n    WHERE account_id = :account_id!\n      AND achieved_at >= COALESCE(:start_date::timestamptz, NOW() - INTERVAL '1 year')\n      AND achieved_at <= COALESCE(:end_date::timestamptz, NOW())\n  )) AS rank,\n  (SELECT MAX(score)\n   FROM score_entries\n   WHERE account_id = :account_id!\n     AND achieved_at >= COALESCE(:start_date::timestamptz, NOW() - INTERVAL '1 year')\n     AND achieved_at <= COALESCE(:end_date::timestamptz, NOW())\n  ) AS score,\n  (SELECT COALESCE(games_won, 0) + COALESCE(games_lost, 0) FROM user_game_state WHERE account_id = :account_id!) AS matches_played"};
+const getUserProfileStatsIR: any = {"usedParamSet":{"account_id":true,"start_date":true,"end_date":true},"params":[{"name":"account_id","required":true,"transform":{"type":"scalar"},"locs":[{"a":204,"b":215},{"a":1175,"b":1186}]},{"name":"start_date","required":false,"transform":{"type":"scalar"},"locs":[{"a":440,"b":450},{"a":730,"b":740}]},{"name":"end_date","required":false,"transform":{"type":"scalar"},"locs":[{"a":528,"b":536},{"a":815,"b":823}]}],"statement":"WITH identity AS (\n  SELECT COALESCE(del.delegate_to_address, acc.primary_address) AS delegated_to\n  FROM effectstream.accounts acc\n  LEFT JOIN delegations del ON del.account_id = acc.id\n  WHERE acc.id = :account_id!\n),\nidentity_best AS (\n  -- Best score for this delegated identity in the window\n  SELECT MAX(se.score) AS best\n  FROM score_entries se, identity i\n  WHERE se.delegated_to = i.delegated_to\n    AND se.achieved_at >= COALESCE(:start_date::timestamptz, NOW() - INTERVAL '1 year')\n    AND se.achieved_at <= COALESCE(:end_date::timestamptz, NOW())\n),\nall_best AS (\n  -- Best score for all delegated identities in the window\n  SELECT delegated_to, MAX(score) AS best\n  FROM score_entries\n  WHERE achieved_at >= COALESCE(:start_date::timestamptz, NOW() - INTERVAL '1 year')\n    AND achieved_at <= COALESCE(:end_date::timestamptz, NOW())\n  GROUP BY delegated_to\n)\nSELECT\n  (\n    SELECT COUNT(*)::int + 1\n    FROM all_best ab, identity_best ib\n    WHERE ab.best > COALESCE(ib.best, -1)\n  ) AS rank,\n  (\n    SELECT best\n    FROM identity_best\n  ) AS score,\n  (\n    SELECT COALESCE(games_won, 0) + COALESCE(games_lost, 0)\n    FROM user_game_state\n    WHERE account_id = :account_id!\n  ) AS matches_played"};
 
 /**
  * Query generated from SQL:
  * ```
+ * WITH identity AS (
+ *   SELECT COALESCE(del.delegate_to_address, acc.primary_address) AS delegated_to
+ *   FROM effectstream.accounts acc
+ *   LEFT JOIN delegations del ON del.account_id = acc.id
+ *   WHERE acc.id = :account_id!
+ * ),
+ * identity_best AS (
+ *   -- Best score for this delegated identity in the window
+ *   SELECT MAX(se.score) AS best
+ *   FROM score_entries se, identity i
+ *   WHERE se.delegated_to = i.delegated_to
+ *     AND se.achieved_at >= COALESCE(:start_date::timestamptz, NOW() - INTERVAL '1 year')
+ *     AND se.achieved_at <= COALESCE(:end_date::timestamptz, NOW())
+ * ),
+ * all_best AS (
+ *   -- Best score for all delegated identities in the window
+ *   SELECT delegated_to, MAX(score) AS best
+ *   FROM score_entries
+ *   WHERE achieved_at >= COALESCE(:start_date::timestamptz, NOW() - INTERVAL '1 year')
+ *     AND achieved_at <= COALESCE(:end_date::timestamptz, NOW())
+ *   GROUP BY delegated_to
+ * )
  * SELECT
- *   (SELECT COUNT(*)::int + 1 FROM (
- *     SELECT account_id, MAX(score) AS best
- *     FROM score_entries
- *     WHERE achieved_at >= COALESCE(:start_date::timestamptz, NOW() - INTERVAL '1 year')
- *       AND achieved_at <= COALESCE(:end_date::timestamptz, NOW())
- *     GROUP BY account_id
- *   ) t WHERE t.best > (
- *     SELECT COALESCE(MAX(score), -1)
- *     FROM score_entries
- *     WHERE account_id = :account_id!
- *       AND achieved_at >= COALESCE(:start_date::timestamptz, NOW() - INTERVAL '1 year')
- *       AND achieved_at <= COALESCE(:end_date::timestamptz, NOW())
- *   )) AS rank,
- *   (SELECT MAX(score)
- *    FROM score_entries
- *    WHERE account_id = :account_id!
- *      AND achieved_at >= COALESCE(:start_date::timestamptz, NOW() - INTERVAL '1 year')
- *      AND achieved_at <= COALESCE(:end_date::timestamptz, NOW())
+ *   (
+ *     SELECT COUNT(*)::int + 1
+ *     FROM all_best ab, identity_best ib
+ *     WHERE ab.best > COALESCE(ib.best, -1)
+ *   ) AS rank,
+ *   (
+ *     SELECT best
+ *     FROM identity_best
  *   ) AS score,
- *   (SELECT COALESCE(games_won, 0) + COALESCE(games_lost, 0) FROM user_game_state WHERE account_id = :account_id!) AS matches_played
+ *   (
+ *     SELECT COALESCE(games_won, 0) + COALESCE(games_lost, 0)
+ *     FROM user_game_state
+ *     WHERE account_id = :account_id!
+ *   ) AS matches_played
  * ```
  */
 export const getUserProfileStats = new PreparedQuery<IGetUserProfileStatsParams,IGetUserProfileStatsResult>(getUserProfileStatsIR);
@@ -834,12 +920,23 @@ export interface IGetUserAchievementIdsQuery {
   result: IGetUserAchievementIdsResult;
 }
 
-const getUserAchievementIdsIR: any = {"usedParamSet":{"account_id":true},"params":[{"name":"account_id","required":true,"transform":{"type":"scalar"},"locs":[{"a":70,"b":81}]}],"statement":"SELECT achievement_id FROM achievement_completions WHERE account_id = :account_id! ORDER BY unlocked_at"};
+const getUserAchievementIdsIR: any = {"usedParamSet":{"account_id":true},"params":[{"name":"account_id","required":true,"transform":{"type":"scalar"},"locs":[{"a":190,"b":201}]}],"statement":"WITH resolved AS (\n  SELECT COALESCE(d.delegate_to_address, a.primary_address) AS delegated_to\n  FROM effectstream.accounts a\n  LEFT JOIN delegations d ON d.account_id = a.id\n  WHERE a.id = :account_id!\n)\nSELECT ac.achievement_id\nFROM achievement_completions ac\nCROSS JOIN resolved r\nWHERE ac.delegated_to = r.delegated_to\nGROUP BY ac.achievement_id\nORDER BY MIN(ac.unlocked_at)"};
 
 /**
  * Query generated from SQL:
  * ```
- * SELECT achievement_id FROM achievement_completions WHERE account_id = :account_id! ORDER BY unlocked_at
+ * WITH resolved AS (
+ *   SELECT COALESCE(d.delegate_to_address, a.primary_address) AS delegated_to
+ *   FROM effectstream.accounts a
+ *   LEFT JOIN delegations d ON d.account_id = a.id
+ *   WHERE a.id = :account_id!
+ * )
+ * SELECT ac.achievement_id
+ * FROM achievement_completions ac
+ * CROSS JOIN resolved r
+ * WHERE ac.delegated_to = r.delegated_to
+ * GROUP BY ac.achievement_id
+ * ORDER BY MIN(ac.unlocked_at)
  * ```
  */
 export const getUserAchievementIds = new PreparedQuery<IGetUserAchievementIdsParams,IGetUserAchievementIdsResult>(getUserAchievementIdsIR);

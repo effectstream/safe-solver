@@ -1,3 +1,4 @@
+import { walletLogin, WalletMode } from "@paimaexample/wallets";
 import { showCustomAlert } from "./Utils";
 import { effectStreamService } from "./EffectStreamService";
 import { getConnectedWallet, getLocalWallet, initializeLocalWallet } from "./EffectStreamWallet";
@@ -72,12 +73,49 @@ export function initWalletUI() {
     const btnConfirmConnect = document.getElementById('btn-confirm-connect-wallet');
     const btnCancelConnect = document.getElementById('btn-cancel-connect-wallet');
 
+    async function doMidnightWalletConnect() {
+        try {
+            const result = await walletLogin({
+                mode: WalletMode.Midnight,
+                networkId: "undeployed",
+            });
+            if (result.success) {
+                const paimaWallet = result.result as { provider?: { conn?: { api?: { getUnshieldedAddress: () => Promise<string> } } } };
+                const unshieldedAddress = paimaWallet?.provider?.conn?.api?.getUnshieldedAddress
+                    ? await paimaWallet.provider.conn.api.getUnshieldedAddress()
+                    : null;
+                if (unshieldedAddress) {
+                    console.log(unshieldedAddress);
+                    console.log('> use this address in the input for delegation');
+                    if (inputDelegateAddress) inputDelegateAddress.value = unshieldedAddress.unshieldedAddress;
+                } else {
+                    if (inputDelegateAddress) inputDelegateAddress.value = '';
+                }
+            } else {
+                if (inputDelegateAddress) inputDelegateAddress.value = '';
+            }
+        } catch (e) {
+            console.error('Wallet login failed', e);
+            if (inputDelegateAddress) inputDelegateAddress.value = '';
+        }
+    }
+
     if (connectWalletBtn) {
         connectWalletBtn.addEventListener('click', () => {
-            if (walletModal) {
-                if (inputDelegateAddress) inputDelegateAddress.value = '';
-                walletModal.style.display = 'block';
-            }
+            if (inputDelegateAddress) inputDelegateAddress.value = '';
+            if (walletModal) walletModal.style.display = 'block';
+        });
+    }
+
+    const btnConnectInModal = document.getElementById('btn-connect-wallet-in-modal');
+    if (btnConnectInModal) {
+        btnConnectInModal.addEventListener('click', async () => {
+            const originalText = btnConnectInModal.textContent;
+            (btnConnectInModal as HTMLButtonElement).disabled = true;
+            btnConnectInModal.textContent = 'Connecting...';
+            await doMidnightWalletConnect();
+            btnConnectInModal.textContent = originalText;
+            (btnConnectInModal as HTMLButtonElement).disabled = false;
         });
     }
 

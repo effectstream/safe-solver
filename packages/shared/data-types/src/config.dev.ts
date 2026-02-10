@@ -9,7 +9,13 @@ import {
 } from "@paimaexample/config";
 import { hardhat } from "viem/chains";
 import { getConnection } from "@paimaexample/db";
+import { midnightNetworkConfig } from "@paimaexample/midnight-contracts/midnight-env";
+import { dirname, resolve } from "@std/path";
 
+const currentDir = dirname(new URL(import.meta.url).pathname);
+const baseDir = resolve(currentDir, "..", "..", "contracts", "midnight-contracts");
+
+console.log("baseDir", { baseDir });
 import * as builtin from "@paimaexample/sm/builtin";
 
 /**
@@ -121,8 +127,13 @@ export const config = new ConfigBuilder()
           type: builtin.PrimitiveTypeMidnightGeneric,
           startBlockHeight: 1,
           contractAddress: readMidnightContract(
-            "midnight-data",
-            "contract-midnight-data.json"
+            "contract-midnight-data",
+            // const midnightContractsDir = resolve(currentDir, "..", "..", "shared", "contracts", "midnight");
+            {
+              baseDir,
+              networkId: midnightNetworkConfig.id,
+              // "contract-midnight-data.json"
+            },
           ).contractAddress,
           stateMachinePrefix: "event_midnight",
           contract: { ledger: midnightDataContract.ledger },

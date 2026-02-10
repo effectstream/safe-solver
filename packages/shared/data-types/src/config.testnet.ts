@@ -11,6 +11,10 @@ import { arbitrumSepolia } from "viem/chains";
 import { getConnection } from "@paimaexample/db";
 
 import * as builtin from "@paimaexample/sm/builtin";
+import { midnightNetworkConfig } from "@paimaexample/midnight-contracts/midnight-env";
+import { dirname, resolve } from "@std/path";
+
+const currentDir = dirname(new URL(import.meta.url).pathname);
 
 /**
  * Let check if the db.
@@ -152,8 +156,12 @@ export const config = new ConfigBuilder()
           type: builtin.PrimitiveTypeMidnightGeneric,
           startBlockHeight: 1,
           contractAddress: readMidnightContract(
-            "midnight-data",
-            "contract-midnight-data.json"
+            "contract-midnight-data",
+            {
+              baseDir: resolve(currentDir, "..", "..", "contracts", "midnight-contracts"),
+              networkId: midnightNetworkConfig.id,
+              // "contract-midnight-data.json"
+            },
           ).contractAddress,
           stateMachinePrefix: "event_midnight",
           contract: { ledger: midnightDataContract.ledger },

@@ -1,7 +1,7 @@
 import {
   deployMidnightContract,
   type DeployConfig,
-} from "@paimaexample/midnight-contracts/deploy-ledger6";
+} from "@paimaexample/midnight-contracts/deploy";
 
 import {
   midnight_data,

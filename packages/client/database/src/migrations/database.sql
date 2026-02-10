@@ -37,22 +37,32 @@ CREATE TABLE achievements (
 CREATE TABLE score_entries (
   id SERIAL PRIMARY KEY,
   account_id INTEGER NOT NULL,
+  -- Delegated identity for this score entry.
+  -- This is the resolved "Main Wallet" address used for leaderboards.
+  -- It is never NULL; when no explicit delegation exists it is set to the
+  -- account's own primary address.
+  delegated_to TEXT NOT NULL,
   score NUMERIC NOT NULL,
   achieved_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_score_entries_account_achieved ON score_entries(account_id, achieved_at DESC);
+-- Indexes to support queries by delegated identity and time range
+CREATE INDEX idx_score_entries_delegated_achieved ON score_entries(delegated_to, achieved_at DESC);
 CREATE INDEX idx_score_entries_achieved_at ON score_entries(achieved_at DESC);
 
 -- Achievement unlocks per account (main identity)
+-- delegated_to: effectstream.accounts.primary_address when no delegation,
+-- otherwise delegations.delegate_to_address (so leaderboard/achievements aggregate by main wallet).
 CREATE TABLE achievement_completions (
   account_id INTEGER NOT NULL,
   achievement_id TEXT NOT NULL REFERENCES achievements(id),
+  delegated_to TEXT NOT NULL,
   unlocked_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
   PRIMARY KEY (account_id, achievement_id)
 );
 
 CREATE INDEX idx_achievement_completions_achievement ON achievement_completions(achievement_id);
+CREATE INDEX idx_achievement_completions_delegated_to ON achievement_completions(delegated_to);
 
 -- Delegations: account (delegator) declares which wallet address they delegate to (e.g. main wallet)
 CREATE TABLE delegations (
