@@ -51,7 +51,7 @@ const midnightAdapterConfig0 = {
   walletFundingTimeoutSeconds: 300, // Increase wallet funding timeout to 5 minutes
 };
 
-class EVMMidnightAdapter extends MidnightAdapter<any> {
+class EVMMidnightAdapter extends MidnightAdapter<typeof midnightDataContract.Contract> {
   // @ts-ignore next line mismatch super type
   override async verifySignature(input: DefaultBatcherInput): Promise<boolean> {
     const {target, address, addressType, timestamp, signature} = input;
@@ -67,7 +67,7 @@ export const midnightAdapter_midnight_data = new EVMMidnightAdapter(
   contractAddress0,
   GENESIS_MINT_WALLET_SEED,
   midnightAdapterConfig0,
-  new midnightDataContract.Contract(midnightDataContractInfo.witnesses),
+  midnightDataContract.Contract,
   midnightDataContractInfo.witnesses,
   contractInfo0,
   syncProtocolName

@@ -820,7 +820,7 @@ export interface IGetIdentityResolutionQuery {
   result: IGetIdentityResolutionResult;
 }
 
-const getIdentityResolutionIR: any = {"usedParamSet":{"address":true},"params":[{"name":"address","required":true,"transform":{"type":"scalar"},"locs":[{"a":158,"b":166},{"a":286,"b":294},{"a":394,"b":402}]}],"statement":"SELECT a.id AS account_id,\n  COALESCE(d.delegate_to_address, a.primary_address) AS resolved_address,\n  (COALESCE(d.delegate_to_address, a.primary_address) <> :address!) AS is_delegate\nFROM effectstream.accounts a\nLEFT JOIN delegations d ON d.account_id = a.id\nWHERE a.primary_address = :address!\n   OR EXISTS (SELECT 1 FROM effectstream.addresses ad WHERE ad.account_id = a.id AND ad.address = :address!)"};
+const getIdentityResolutionIR: any = {"usedParamSet":{"address":true},"params":[{"name":"address","required":true,"transform":{"type":"scalar"},"locs":[{"a":158,"b":166},{"a":286,"b":294},{"a":410,"b":418},{"a":552,"b":560}]}],"statement":"SELECT a.id AS account_id,\n  COALESCE(d.delegate_to_address, a.primary_address) AS resolved_address,\n  (COALESCE(d.delegate_to_address, a.primary_address) <> :address!) AS is_delegate\nFROM effectstream.accounts a\nLEFT JOIN delegations d ON d.account_id = a.id\nWHERE a.primary_address = :address!\n   OR EXISTS (\n     SELECT 1\n     FROM effectstream.addresses ad\n     WHERE ad.account_id = a.id AND ad.address = :address!\n   )\n   -- Also support lookups where :address is the delegated identity\n   OR COALESCE(d.delegate_to_address, a.primary_address) = :address!\nLIMIT 1"};
 
 /**
  * Query generated from SQL:
@@ -831,7 +831,14 @@ const getIdentityResolutionIR: any = {"usedParamSet":{"address":true},"params":[
  * FROM effectstream.accounts a
  * LEFT JOIN delegations d ON d.account_id = a.id
  * WHERE a.primary_address = :address!
- *    OR EXISTS (SELECT 1 FROM effectstream.addresses ad WHERE ad.account_id = a.id AND ad.address = :address!)
+ *    OR EXISTS (
+ *      SELECT 1
+ *      FROM effectstream.addresses ad
+ *      WHERE ad.account_id = a.id AND ad.address = :address!
+ *    )
+ *    -- Also support lookups where :address is the delegated identity
+ *    OR COALESCE(d.delegate_to_address, a.primary_address) = :address!
+ * LIMIT 1
  * ```
  */
 export const getIdentityResolution = new PreparedQuery<IGetIdentityResolutionParams,IGetIdentityResolutionResult>(getIdentityResolutionIR);
