@@ -213,7 +213,14 @@ SELECT a.id AS account_id,
 FROM effectstream.accounts a
 LEFT JOIN delegations d ON d.account_id = a.id
 WHERE a.primary_address = :address!
-   OR EXISTS (SELECT 1 FROM effectstream.addresses ad WHERE ad.account_id = a.id AND ad.address = :address!);
+   OR EXISTS (
+     SELECT 1
+     FROM effectstream.addresses ad
+     WHERE ad.account_id = a.id AND ad.address = :address!
+   )
+   -- Also support lookups where :address is the delegated identity
+   OR COALESCE(d.delegate_to_address, a.primary_address) = :address!
+LIMIT 1;
 
 /* @name GetUserProfileStats */
 WITH identity AS (
