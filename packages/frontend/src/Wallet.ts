@@ -87,7 +87,7 @@ export function initWalletUI() {
                 if (unshieldedAddress) {
                     console.log(unshieldedAddress);
                     console.log('> use this address in the input for delegation');
-                    if (inputDelegateAddress) inputDelegateAddress.value = unshieldedAddress.unshieldedAddress;
+                    if (inputDelegateAddress) inputDelegateAddress.value = (unshieldedAddress as any).unshieldedAddress;
                 } else {
                     if (inputDelegateAddress) inputDelegateAddress.value = '';
                 }

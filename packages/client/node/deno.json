@@ -8,8 +8,8 @@
   "tasks": {
     "check": "deno check --unstable-raw-imports src/main.dev.ts && deno check --unstable-raw-imports src/main.testnet.ts",
     
-    "node:start:dev": "deno run -A --inspect --unstable-raw-imports src/main.dev.ts",
-    "node:start:testnet": "deno run -A --inspect --unstable-raw-imports src/main.testnet.ts",
+    "node:start:dev": "deno run -A --unstable-raw-imports src/main.dev.ts",
+    "node:start:testnet": "deno run -A --unstable-raw-imports src/main.testnet.ts",
 
     "dev": "deno task -f @paimaexample/tui clean && EFFECTSTREAM_ENV=dev NODE_ENV=development deno run -A --check --unstable-raw-imports scripts/start.dev.ts",
     "testnet": "deno task -f @paimaexample/tui clean && EFFECTSTREAM_ENV=testnet NODE_ENV=development deno run -A --check --unstable-raw-imports scripts/start.testnet.ts",
