@@ -6,11 +6,11 @@ import {
 import {
   midnight_data,
   witnesses as midnightDataWitnesses,
-} from "./midnight-data/src/index.original.ts";
+} from "./contract-midnight-data/src/index.original.ts";
 
 const configs: DeployConfig[] = [
   {
-    contractName: "midnight-data",
+    contractName: "contract-midnight-data",
     contractFileName: "contract-midnight-data.json",
     contractClass: midnight_data.Contract,
     witnesses: midnightDataWitnesses,

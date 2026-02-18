@@ -1,0 +1,1 @@
+PGLITE=false DB_NAME=safe_solver DB_USER=user DB_PW=pass DB_HOST=127.0.0.1 deno task dev

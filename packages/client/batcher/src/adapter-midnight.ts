@@ -67,7 +67,7 @@ export const midnightAdapter_midnight_data = new EVMMidnightAdapter(
   contractAddress0,
   GENESIS_MINT_WALLET_SEED,
   midnightAdapterConfig0,
-  new midnightDataContract.Contract(midnightDataContractInfo.witnesses),
+  midnightDataContract.Contract,
   midnightDataContractInfo.witnesses,
   contractInfo0,
   syncProtocolName
