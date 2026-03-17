@@ -26,15 +26,18 @@ const {
     // contractFileName: "contract-midnight-data.json",
   },
 );
+
+if (!contractAddress0) {
+  throw new Error("Contract address not found");
+}
 /** MIDNIGHT-READ-CONTRACT-BLOCK  */
 
-const GENESIS_MINT_WALLET_SEED =
-  "0000000000000000000000000000000000000000000000000000000000000001";
-const indexer = "http://localhost:8088/api/v3/graphql";
-const indexerWS = "ws://localhost:8088/api/v3/graphql/ws";
-const node = "http://localhost:9944";
-const proofServer = "http://localhost:6300";
-const networkID =  isTestnet ? 'undeployed' : 'undeployed'; // NetworkId.Undeployed,
+const GENESIS_MINT_WALLET_SEED = midnightNetworkConfig.walletSeed;
+const indexer = midnightNetworkConfig.indexer;
+const indexerWS = midnightNetworkConfig.indexerWS;
+const node = midnightNetworkConfig.node;
+const proofServer = midnightNetworkConfig.proofServer;
+const networkID = midnightNetworkConfig.id;
 const syncProtocolName = "parallelMidnight";
 
 /** MIDNIGHT-READ-CONTRACT-BLOCK */

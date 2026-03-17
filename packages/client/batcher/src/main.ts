@@ -7,6 +7,7 @@ import { effectstreaml2Adapter } from "./adapter-effectstreaml2.ts";
 const batcher = createNewBatcher(config, storage);
 const batchIntervalMs = 100;
 
+console.log("Adding effectstreaml2 adapter");
 batcher
   .addBlockchainAdapter("effectstreaml2", effectstreaml2Adapter, {
     criteriaType: "time",
@@ -16,6 +17,7 @@ batcher
 
 for (const [contract, adapter] of Object.entries(midnightAdapters)) {
   if (adapter instanceof MidnightAdapter) {
+    console.log("Adding midnight adapter", contract);
     batcher.addBlockchainAdapter(contract, adapter, {
       criteriaType: "size",
       maxBatchSize: 1,
