@@ -7,7 +7,7 @@ import "@midnight-ntwrk/onchain-runtime";
 
 import { init, start } from "@paimaexample/runtime";
 import { main, suspend } from "effection";
-import { config } from "@safe-solver/data-types/config-testnet";
+import { config } from "@safe-solver/data-types/config-mainnet";
 import {
   type SyncProtocolWithNetwork,
   toSyncProtocolWithNetwork,

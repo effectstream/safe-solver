@@ -1,71 +1,12 @@
-import { walletLogin, WalletMode } from "@paimaexample/wallets";
 import { showCustomAlert } from "./Utils";
 import { effectStreamService } from "./EffectStreamService";
-import { getConnectedWallet, getLocalWallet, initializeLocalWallet } from "./EffectStreamWallet";
+import { getLocalWallet, connectMidnightWallet, updateSetNameButtonLabel } from "./EffectStreamWallet";
 import { state } from "./GameState";
 import { updateTokenDisplay } from "./GameLogic";
 
-export async function updateSetNameButtonLabel() {
-    const btnSetName = document.getElementById('btn-set-name');
-    if (!btnSetName) return;
+export { updateSetNameButtonLabel };
 
-    btnSetName.style.display = 'inline-block';
-
-    let wallet = getConnectedWallet();
-    let local = getLocalWallet();
-    if (!local) {
-        local = await initializeLocalWallet();
-    }
-
-    // Determine the effective address (Account Primary Address if available)
-    let effectiveAddress: string | null = null;
-    const currentAddress = (wallet && wallet.walletAddress) || (local && local.walletAddress);
-
-    if (currentAddress) {
-        try {
-            const info = await effectStreamService.getAddressInfo(currentAddress);
-            if (info && info.account_id !== null) {
-                const accountInfo = await effectStreamService.getAccountInfo(info.account_id);
-                if (accountInfo && accountInfo.primary_address) {
-                    effectiveAddress = accountInfo.primary_address;
-                }
-            }
-        } catch (e) {
-            console.error("Error determining primary address", e);
-        }
-
-        // Fallback to current address if not part of account or check failed
-        if (!effectiveAddress) {
-            effectiveAddress = currentAddress;
-        }
-    }
-
-    if (!effectiveAddress) {
-        btnSetName.textContent = "SET NAME";
-        return;
-    }
-
-    // 1. Get User Account Name (using effective address)
-    let nameFound = false;
-    try {
-        const profile = await effectStreamService.getUserProfile(effectiveAddress);
-        if (profile && profile.name) {
-            btnSetName.textContent = profile.name;
-            nameFound = true;
-        }
-    } catch (e) {
-        // ignore
-    }
-
-    if (nameFound) return;
-
-    // 2. Use Effective Address (truncated)
-    const addr = effectiveAddress;
-    btnSetName.textContent = addr.substring(0, 6) + '...' + addr.substring(addr.length - 4);
-}
-
-
-export function initWalletUI() {
+export async function initWalletUI() {
     const connectWalletBtn = document.getElementById('btn-connect-wallet');
     const walletModal = document.getElementById('wallet-modal');
     const closeModal = document.getElementById('close-modal');
@@ -73,49 +14,42 @@ export function initWalletUI() {
     const btnConfirmConnect = document.getElementById('btn-confirm-connect-wallet');
     const btnCancelConnect = document.getElementById('btn-cancel-connect-wallet');
 
-    async function doMidnightWalletConnect() {
-        try {
-            const result = await walletLogin({
-                mode: WalletMode.Midnight,
-                networkId: "undeployed",
-            });
-            if (result.success) {
-                const paimaWallet = result.result as { provider?: { conn?: { api?: { getUnshieldedAddress: () => Promise<string> } } } };
-                const unshieldedAddress = paimaWallet?.provider?.conn?.api?.getUnshieldedAddress
-                    ? await paimaWallet.provider.conn.api.getUnshieldedAddress()
-                    : null;
-                if (unshieldedAddress) {
-                    console.log(unshieldedAddress);
-                    console.log('> use this address in the input for delegation');
-                    if (inputDelegateAddress) inputDelegateAddress.value = unshieldedAddress.unshieldedAddress;
-                } else {
-                    if (inputDelegateAddress) inputDelegateAddress.value = '';
-                }
-            } else {
-                if (inputDelegateAddress) inputDelegateAddress.value = '';
-            }
-        } catch (e) {
-            console.error('Wallet login failed', e);
-            if (inputDelegateAddress) inputDelegateAddress.value = '';
-        }
-    }
-
     if (connectWalletBtn) {
-        connectWalletBtn.addEventListener('click', () => {
-            if (inputDelegateAddress) inputDelegateAddress.value = '';
-            if (walletModal) walletModal.style.display = 'block';
-        });
-    }
+        connectWalletBtn.addEventListener('click', async () => {
+            // Connect to Midnight wallet extension
+            const address = await connectMidnightWallet();
+            if (address) {
+                // Auto-fill the delegate address input
+                if (inputDelegateAddress) {
+                    inputDelegateAddress.value = address;
+                }
 
-    const btnConnectInModal = document.getElementById('btn-connect-wallet-in-modal');
-    if (btnConnectInModal) {
-        btnConnectInModal.addEventListener('click', async () => {
-            const originalText = btnConnectInModal.textContent;
-            (btnConnectInModal as HTMLButtonElement).disabled = true;
-            btnConnectInModal.textContent = 'Connecting...';
-            await doMidnightWalletConnect();
-            btnConnectInModal.textContent = originalText;
-            (btnConnectInModal as HTMLButtonElement).disabled = false;
+                // Check if this address is already delegated
+                try {
+                    const info = await effectStreamService.getAddressInfo(address);
+                    if (info && info.account_id !== null) {
+                        const accountInfo = await effectStreamService.getAccountInfo(info.account_id);
+                        if (accountInfo && accountInfo.primary_address === address) {
+                            connectWalletBtn.textContent = "WALLET CONNECTED";
+                        } else {
+                            connectWalletBtn.textContent = "WALLET CONNECTED";
+                            // Show the delegation modal so user can delegate
+                            if (walletModal) walletModal.style.display = 'block';
+                        }
+                    } else {
+                        connectWalletBtn.textContent = "WALLET CONNECTED";
+                        // Show modal for delegation
+                        if (walletModal) walletModal.style.display = 'block';
+                    }
+                } catch (e) {
+                    connectWalletBtn.textContent = "WALLET CONNECTED";
+                    // Show modal for delegation
+                    if (walletModal) walletModal.style.display = 'block';
+                }
+
+                // Update the name button with address/delegated address
+                await updateSetNameButtonLabel();
+            }
         });
     }
 
@@ -152,8 +86,8 @@ export function initWalletUI() {
             try {
                 await effectStreamService.delegateToAddress(address);
                 walletModal.style.display = 'none';
-                const short = address.length > 10 ? address.substring(0, 6) + '...' + address.substring(address.length - 4) : address;
-                connectWalletBtn.textContent = 'Delegated to: ' + short;
+                // Update Connect Wallet button
+                connectWalletBtn.textContent = 'WALLET CONNECTED';
 
                 const wallet = getLocalWallet();
                 if (wallet?.walletAddress) {
