@@ -84,6 +84,30 @@ window.addEventListener('click', (event) => {
 });
 
 
+// Footer overlay
+const footerLink = document.getElementById('footer-link');
+const footerOverlay = document.getElementById('footer-overlay');
+const closeFooterOverlay = document.getElementById('close-footer-overlay');
+
+if (footerLink && footerOverlay) {
+    footerLink.addEventListener('click', (e) => {
+        e.preventDefault();
+        footerOverlay.style.display = 'block';
+    });
+}
+
+if (closeFooterOverlay && footerOverlay) {
+    closeFooterOverlay.addEventListener('click', () => {
+        footerOverlay.style.display = 'none';
+    });
+}
+
+window.addEventListener('click', (event) => {
+    if (event.target === footerOverlay && footerOverlay) {
+        footerOverlay.style.display = 'none';
+    }
+});
+
 // Initialize Drill
 const drill = new Drill();
 

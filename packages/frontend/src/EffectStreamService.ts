@@ -285,6 +285,16 @@ class EffectStreamService {
     }
   }
 
+  public async getDelegation(accountId: number): Promise<{ account_id: number; delegate_to_address: string; delegated_at: string } | null> {
+    try {
+      const response = await fetch(`${ENV.API_URL}/api/account/${accountId}/delegation`);
+      if (!response.ok) return null;
+      return await response.json();
+    } catch (e) {
+      return null;
+    }
+  }
+
   public async getAccountAddresses(id: number): Promise<Array<{ address: string, address_type: number, account_id: number }>> {
     try {
       const response = await fetch(`${ENV.API_URL}/api/account/${id}/addresses`);

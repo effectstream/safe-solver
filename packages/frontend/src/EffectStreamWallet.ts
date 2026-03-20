@@ -107,9 +107,9 @@ export async function checkExistingDelegation() {
   try {
     const info = await effectStreamService.getAddressInfo(local.walletAddress);
     if (info && info.account_id !== null) {
-      const accountInfo = await effectStreamService.getAccountInfo(info.account_id);
-      if (accountInfo && accountInfo.primary_address && accountInfo.primary_address !== local.walletAddress) {
-        midnightAddress = accountInfo.primary_address;
+      const delegation = await effectStreamService.getDelegation(info.account_id);
+      if (delegation && delegation.delegate_to_address) {
+        midnightAddress = delegation.delegate_to_address;
         if (connectWalletBtn) {
           connectWalletBtn.textContent = "WALLET CONNECTED";
         }
