@@ -4,6 +4,7 @@ import {
   getAddressByAddress,
   getAccountById,
   getAddressesByAccountId,
+  getDelegationByAccountId,
   getGameInfo,
   getAchievementsWithCompletedCount,
   getLeaderboardTotalPlayers,
@@ -107,6 +108,28 @@ export const apiCommon = async (
       "getAddressesByAccountId"
     );
     reply.send(results);
+  });
+
+  // Account Delegation Endpoint
+  server.get<{
+    Params: Static<typeof AccountParamsSchema>;
+    Reply: { account_id: number; delegate_to_address: string; delegated_at: string } | { error: string };
+  }>("/api/account/:id/delegation", async (request, reply) => {
+    const { id } = request.params;
+    const [result] = await runPreparedQuery(
+      getDelegationByAccountId.run({ account_id: id }, dbConn),
+      "getDelegationByAccountId"
+    );
+
+    if (!result) {
+      reply.code(404).send({ error: "No delegation found" });
+      return;
+    }
+    reply.send({
+      account_id: result.account_id,
+      delegate_to_address: result.delegate_to_address,
+      delegated_at: result.delegated_at.toISOString(),
+    });
   });
 
   // ---------- Game Integration API (SPEC v1) ----------

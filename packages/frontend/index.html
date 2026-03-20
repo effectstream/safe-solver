@@ -19,7 +19,7 @@
             <button id="btn-add-tokens">ADD tokens</button>
         </div>
         <button id="btn-mute">🔊</button>
-        <button id="btn-set-name" style="display: none;">SET NAME</button>
+        <button id="btn-set-name" style="display: none; cursor: default; pointer-events: none;">SET PLAYER NAME</button>
         <button id="btn-connect-wallet">CONNECT WALLET</button>
       </header>
       <div id="game-layout">
@@ -138,6 +138,26 @@
             </div>
         </div>
     </div>
+    <div id="footer-bar">
+      <a href="#" id="footer-link">Learn More / Report Issues</a>
+    </div>
+
+    <div id="footer-overlay" class="modal" style="display:none;">
+      <div class="modal-content footer-overlay-box" style="text-align:center;">
+        <span class="close" id="close-footer-overlay">&times;</span>
+        <h2 style="font-size:30px; color:#ffd700;">Safe Solver</h2>
+        <p style="max-width:400px; margin:10px auto;">
+          Safe Solver is implemented on the Midnight Blockchain. This game demonstrates how privacy preserving smart contracts can be used for real applications.
+        </p>
+        <div style="display:flex; justify-content:center; gap:12px; margin-top:20px;">
+          <a href="https://github.com/effectstream/mnf-game-issues/issues" target="_blank" rel="noopener noreferrer"
+             class="footer-btn footer-btn-primary">Report Issues</a>
+          <a href="https://github.com/effectstream/safe-solver" target="_blank" rel="noopener noreferrer"
+             class="footer-btn footer-btn-outline">Source Code</a>
+        </div>
+      </div>
+    </div>
+
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
