@@ -14,6 +14,8 @@ export async function initWalletUI() {
     const btnConfirmConnect = document.getElementById('btn-confirm-connect-wallet');
     const btnCancelConnect = document.getElementById('btn-cancel-connect-wallet');
 
+
+
     if (connectWalletBtn) {
         connectWalletBtn.addEventListener('click', async () => {
             // Connect to Midnight wallet extension
