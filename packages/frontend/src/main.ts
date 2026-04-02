@@ -13,6 +13,7 @@ import { state } from './GameState';
 import { soundManager } from './SoundManager';
 import { particleManager } from './ParticleManager';
 import { initWalletUI, updateSetNameButtonLabel } from './Wallet';
+import { leaderboard } from './EffectStreamLeaderboard';
 
 // Initialize Scene
 initScene(() => {
@@ -32,6 +33,8 @@ initializeLocalWallet().then(async (wallet) => {
             updateTokenDisplay();
             await checkExistingDelegation();
             await updateSetNameButtonLabel();
+            // Re-render leaderboard now that wallet is available for (Me) detection
+            leaderboard.render();
         } catch (e) {
             console.error("Failed to fetch initial profile", e);
         }

@@ -20,7 +20,7 @@
         </div>
         <button id="btn-mute">🔊</button>
         <button id="btn-set-name" style="display: none; cursor: default; pointer-events: none;">SET PLAYER NAME</button>
-        <button id="btn-connect-wallet">CONNECT WALLET</button>
+        <button id="btn-connect-wallet">CONNECT WALLET<span class="tooltip">Connect your wallet to save your score!</span></button>
       </header>
       <div id="game-layout">
         <div id="game-view">
@@ -122,25 +122,25 @@
             <span class="close" id="close-how-to-play-modal">&times;</span>
             <h2>How to Play</h2>
             <div style="text-align: left; line-height: 1.6;">
-                <p><strong>Goal:</strong> Find the prize hidden in the safes to advance levels and multiply your score!</p>
-                <ul style="margin-bottom: 20px;">
-                    <li><strong>Start:</strong> You will see some safes and you can either:</li>
-                    <li><strong>Pick a Safe:</strong> Click a safe to drill it.
-                        <ul>
-                            <li>✅ <strong>Win:</strong> If it has gold, you get points and move to the next level.</li>
-                            <li>❌ <strong>Lose:</strong> The alarm goes off (bad safe), the game ends immediately!</li>
-                        </ul>
-                    </li>
-                    <li><strong>or Cash Out:</strong> Press "KEEP REWARD" at any time to add your current score to the leaderboard. If you lose, you get 0!</li>
+                <p><strong>Crack safes. Stack rewards. Cash out before it's too late.</strong></p>
+
+                <h3 style="margin-top: 16px;">The Basics</h3>
+                <p>Each level presents 3 to 7 safes. <strong>Only one triggers the alarm</strong> — the rest contain gold.</p>
+                <ul>
+                    <li><strong>Pick a safe</strong> — drill it open to see what's inside.</li>
+                    <li><strong>Gold?</strong> You earn points and advance to the next level.</li>
+                    <li><strong>Alarm?</strong> Game over — you lose <em>all</em> your unbanked points.</li>
                 </ul>
+
+                <h3 style="margin-top: 16px;">Scoring & Multiplier</h3>
+                <p>Fewer safes means higher base points but riskier odds. As you advance levels, a <strong>multiplier</strong> increases your prize — but so does the risk.</p>
+
+                <h3 style="margin-top: 16px;">Cash Out</h3>
+                <p>Press <strong>"KEEP REWARD"</strong> at any time to bank your points to the leaderboard. If you get greedy and lose, you walk away with <strong>nothing</strong>.</p>
+
                 <hr style="border: 0; border-top: 1px solid #ccc; margin: 20px 0;">
-                <h3>Connect Your Real Wallet</h3>
-                <p>To delegate your game progress to a wallet address (e.g. your main wallet):</p>
-                <ol>
-                    <li>Click the <strong>CONNECT WALLET</strong> button in the top right.</li>
-                    <li>Enter the wallet address you want to delegate to.</li>
-                    <li>Confirm to send the delegation; your local account will be linked to that address.</li>
-                </ol>
+                <h3>Wallet</h3>
+                <p>Use <strong>CONNECT WALLET</strong> to link your main wallet address — your scores will appear under that address on the leaderboard.</p>
             </div>
             <div style="display: flex; justify-content: center; margin-top: 20px;">
                 <button id="btn-how-to-play-ok" style="padding: 10px 20px; cursor: pointer;">Got it!</button>
