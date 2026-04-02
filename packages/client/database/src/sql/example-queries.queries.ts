@@ -529,6 +529,36 @@ const getDelegationByAccountIdIR: any = {"usedParamSet":{"account_id":true},"par
 export const getDelegationByAccountId = new PreparedQuery<IGetDelegationByAccountIdParams,IGetDelegationByAccountIdResult>(getDelegationByAccountIdIR);
 
 
+/** 'GetAccountByDelegateAddress' parameters type */
+export interface IGetAccountByDelegateAddressParams {
+  address: string;
+}
+
+/** 'GetAccountByDelegateAddress' return type */
+export interface IGetAccountByDelegateAddressResult {
+  account_id: number;
+  address: string;
+}
+
+/** 'GetAccountByDelegateAddress' query type */
+export interface IGetAccountByDelegateAddressQuery {
+  params: IGetAccountByDelegateAddressParams;
+  result: IGetAccountByDelegateAddressResult;
+}
+
+const getAccountByDelegateAddressIR: any = {"usedParamSet":{"address":true},"params":[{"name":"address","required":true,"transform":{"type":"scalar"},"locs":[{"a":103,"b":111}]}],"statement":"SELECT d.account_id, d.delegate_to_address AS address\nFROM delegations d\nWHERE d.delegate_to_address = :address!"};
+
+/**
+ * Query generated from SQL:
+ * ```
+ * SELECT d.account_id, d.delegate_to_address AS address
+ * FROM delegations d
+ * WHERE d.delegate_to_address = :address!
+ * ```
+ */
+export const getAccountByDelegateAddress = new PreparedQuery<IGetAccountByDelegateAddressParams,IGetAccountByDelegateAddressResult>(getAccountByDelegateAddressIR);
+
+
 /** 'GetGameInfo' parameters type */
 export type IGetGameInfoParams = void;
 

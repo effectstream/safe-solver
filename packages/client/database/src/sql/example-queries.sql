@@ -101,6 +101,11 @@ SELECT account_id, delegate_to_address, delegated_at FROM upsert;
 /* @name GetDelegationByAccountId */
 SELECT account_id, delegate_to_address, delegated_at FROM delegations WHERE account_id = :account_id!;
 
+/* @name GetAccountByDelegateAddress */
+SELECT d.account_id, d.delegate_to_address AS address
+FROM delegations d
+WHERE d.delegate_to_address = :address!;
+
 /* @name GetGameInfo */
 SELECT name, description, score_unit, sort_order FROM game_info WHERE id = 1;
 
