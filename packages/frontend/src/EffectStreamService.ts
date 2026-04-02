@@ -50,6 +50,7 @@ class EffectStreamService {
 
   /**
    * Helper to ensure the local wallet has an account before proceeding.
+   * Throws if the account cannot be confirmed after polling.
    */
   private async ensureLocalAccount(): Promise<void> {
     const localWallet = getLocalWallet();
@@ -57,38 +58,39 @@ class EffectStreamService {
       throw new Error("Local wallet not found");
     }
 
-    try {
-      const walletAddress: { address: string, type: number } = await localWallet.provider.getAddress();
-      const info = await this.getAddressInfo(walletAddress.address);
+    const walletAddress: { address: string, type: number } = await localWallet.provider.getAddress();
+    const info = await this.getAddressInfo(walletAddress.address);
 
-      if (info && info.account_id !== null) {
-        return; // Already has account
-      }
-
-      console.log("[MockServer] Creating account for local wallet...");
-      const createAccData = await accountPayload.createAccount();
-      await this.sendTransactionWrapper(
-        localWallet,
-        createAccData,
-        EngineConfig,
-        "wait-effectstream-processed"
-      );
-
-      // Wait for account creation
-      let retries = 10;
-      while (retries > 0) {
-        await this.delay(1000);
-        const newInfo = await this.getAddressInfo(walletAddress.address);
-        if (newInfo && newInfo.account_id !== null) break;
-        retries--;
-      }
-    } catch (e) {
-      console.error("Failed to ensure local account", e);
+    if (info && info.account_id !== null) {
+      return; // Already has account
     }
+
+    console.log("[MockServer] Creating account for local wallet...");
+    const createAccData = await accountPayload.createAccount();
+    await this.sendTransactionWrapper(
+      localWallet,
+      createAccData,
+      EngineConfig,
+      "wait-effectstream-processed"
+    );
+
+    // Poll until account creation is confirmed
+    const maxRetries = 20;
+    for (let i = 0; i < maxRetries; i++) {
+      await this.delay(1000);
+      const newInfo = await this.getAddressInfo(walletAddress.address);
+      if (newInfo && newInfo.account_id !== null) {
+        console.log(`[MockServer] Account confirmed after ${i + 1} poll(s)`);
+        return;
+      }
+    }
+
+    throw new Error("Account creation could not be confirmed after polling");
   }
 
   /**
    * Initializes the level on the "server".
+   * Throws if account or game state cannot be confirmed.
    */
   async initLevel(): Promise<void> {
     const localWallet = getLocalWallet();
@@ -96,6 +98,8 @@ class EffectStreamService {
       throw new Error("Local wallet not found");
     }
     await this.ensureLocalAccount();
+
+    const walletAddress = (await localWallet.provider.getAddress()).address;
 
     const conciseData = ["initLevel"];
     await this.sendTransactionWrapper(
@@ -105,9 +109,19 @@ class EffectStreamService {
       "wait-effectstream-processed"
     );
 
-    console.log(
-      `[MockServer] Request: Init Level`
-    );
+    console.log(`[MockServer] Request: Init Level`);
+
+    // Poll until game state is confirmed as ongoing
+    for (let i = 0; i < 15; i++) {
+      await this.delay(1000);
+      const gameState = await this.getGameState(walletAddress);
+      if (gameState && gameState.is_ongoing) {
+        console.log(`[MockServer] Game state confirmed after ${i + 1} poll(s)`);
+        return;
+      }
+    }
+
+    throw new Error("Game state not created after initLevel");
   }
 
   public getPrize(numSafes: number, round: number): number {
@@ -203,7 +217,7 @@ class EffectStreamService {
         if (name) {
           name = truncateAddress(name);
         }
-        return { name: name ?? "Anonymous", score };
+        return { name: name ?? "Anonymous", score, address: e.address };
       });
       console.log(`[EffectStreamService] Leaderboard: ${mapped.length} entries`);
       return mapped;
@@ -354,7 +368,7 @@ class EffectStreamService {
       );
 
       // Wait/Poll for account creation
-      let retries = 10;
+      let retries = 20;
       while (retries > 0) {
         await this.delay(1000);
         localInfo = await this.getAddressInfo(localAddress);

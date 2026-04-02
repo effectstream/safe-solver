@@ -145,9 +145,15 @@ export async function updateSetNameButtonLabel() {
     try {
       const info = await effectStreamService.getAddressInfo(currentAddress);
       if (info && info.account_id !== null) {
-        const accountInfo = await effectStreamService.getAccountInfo(info.account_id);
-        if (accountInfo && accountInfo.primary_address) {
-          effectiveAddress = accountInfo.primary_address;
+        // If delegated, show the delegation address; otherwise show primary
+        const delegation = await effectStreamService.getDelegation(info.account_id);
+        if (delegation && delegation.delegate_to_address) {
+          effectiveAddress = delegation.delegate_to_address;
+        } else {
+          const accountInfo = await effectStreamService.getAccountInfo(info.account_id);
+          if (accountInfo && accountInfo.primary_address) {
+            effectiveAddress = accountInfo.primary_address;
+          }
         }
       }
     } catch (e) {
@@ -165,19 +171,17 @@ export async function updateSetNameButtonLabel() {
     return;
   }
 
-  // 1. Get User Account Name (using effective address)
-  let nameFound = false;
+  // 1. Get User Account Name (only use if it's a custom name, not a default address)
   try {
     const profile = await effectStreamService.getUserProfile(effectiveAddress);
-    if (profile && profile.name) {
+    if (profile && profile.name && !profile.name.startsWith("0x") && !profile.name.startsWith("mn_")) {
       btnSetName.textContent = profile.name;
-      nameFound = true;
+      btnSetName.title = effectiveAddress;
+      return;
     }
   } catch (e) {
     // ignore
   }
-
-  if (nameFound) return;
 
   // 2. Use Effective Address (truncated, full on hover)
   btnSetName.textContent = truncateAddress(effectiveAddress);

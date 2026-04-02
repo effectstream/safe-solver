@@ -4,7 +4,7 @@ import { state, setScore, resetState } from './GameState';
 import { Safe } from './Safe';
 import { scene, camera, ambientLight, pointLight, resetSceneLighting } from './Scene';
 import { leaderboard } from './EffectStreamLeaderboard';
-import { getConnectedWallet, getLocalWallet } from './EffectStreamWallet';
+import { getConnectedWallet, getLocalWallet, initializeLocalWallet } from './EffectStreamWallet';
 import { showCustomAlert } from './Utils';
 import { soundManager } from './SoundManager';
 import { effectStreamService } from './EffectStreamService';
@@ -111,6 +111,9 @@ export async function startGame(isDemo: boolean = false) {
     state.isPlaying = true;
     resetState(); // Reset level to 1, score, etc.
     updateScoreDisplay();
+
+    // Ensure wallet is initialized before proceeding
+    await initializeLocalWallet();
     
     const mainScreen = document.getElementById('main-screen');
     const info = document.getElementById('info');
@@ -138,9 +141,9 @@ export async function cashOut() {
         showCustomAlert(`Demo Game Over! You would have won ${state.score.toFixed(2)} tokens.`);
     } else {
         soundManager.play('cashout');
-        const wallet = getConnectedWallet();
         const localWallet = getLocalWallet();
-        const address = wallet?.walletAddress || localWallet?.walletAddress;
+        const wallet = getConnectedWallet();
+        const address = localWallet?.walletAddress || wallet?.walletAddress;
         
         let accountId: number | undefined;
 
@@ -233,9 +236,9 @@ export async function startLevel(numSafesOverride?: number) {
 
     // Check if we can continue an ongoing game first
     try {
-        const wallet = getConnectedWallet();
         const localWallet = getLocalWallet();
-        const address = wallet?.walletAddress || localWallet?.walletAddress;
+        const wallet = getConnectedWallet();
+        const address = localWallet?.walletAddress || wallet?.walletAddress;
         if (address) {
             const gameState = await effectStreamService.getGameState(address);
             if (gameState && gameState.is_ongoing) {
@@ -254,15 +257,18 @@ export async function startLevel(numSafesOverride?: number) {
                 // We need to call initLevel for level 1.
                 
                 // Initial mock service call only for start
+                // initLevel ensures account exists and polls until game state is ongoing
                 try {
                     await effectStreamService.initLevel();
-                    // Re-fetch state to get safe count if needed, though we default to 3 or random
+                    // Game is confirmed ongoing - fetch safe count
                     const newGameState = await effectStreamService.getGameState(address);
-                     if (newGameState && newGameState.safe_count) {
+                    if (newGameState && newGameState.safe_count) {
                         numSafes = newGameState.safe_count;
                     }
                 } catch (error) {
                     console.error("Failed to init level:", error);
+                    showMainScreen();
+                    return;
                 }
             } else {
                  // Level > 1 and not resuming (should be covered by else block logic or parameter override)
