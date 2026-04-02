@@ -7,46 +7,25 @@ import {
   ConfigNetworkType,
   ConfigSyncProtocolType,
 } from "@paimaexample/config";
-import { hardhat } from "viem/chains";
-import { getConnection } from "@paimaexample/db";
+import { arbitrum } from "viem/chains";
 import { midnightNetworkConfig } from "@paimaexample/midnight-contracts/midnight-env";
+
+import * as builtin from "@paimaexample/sm/builtin";
 import { dirname, resolve } from "@std/path";
 
 const currentDir = dirname(new URL(import.meta.url).pathname);
-const baseDir = resolve(currentDir, "..", "..", "contracts", "midnight-contracts");
 
-import * as builtin from "@paimaexample/sm/builtin";
-
-if (midnightNetworkConfig.id !== 'undeployed') {
-  throw new Error("Invalid midnight network id for dev environment");
+const EVM_RPC_URL = Deno.env.get("ARBITRUM_ONE_RPC") as string;
+if (!EVM_RPC_URL) {
+  throw new Error("ARBITRUM_ONE_RPC is not set");
 }
-
-/**
- * Let check if the db.
- * If empty then the db is not initialized, and use the current time for the NTP sync.
- * If not, we recreate the original state configuration.
- */
+if (midnightNetworkConfig.id !== 'mainnet') {
+  throw new Error("Invalid midnight network id for mainnet environment");
+}
 
 const mainSyncProtocolName = "mainNtp";
 let launchStartTime: number | undefined;
-const dbConn = getConnection();
-try {
-  // TODO Update to effectstream.sync_protocol_pagination
-  const result = await dbConn.query(`
-    SELECT * FROM effectstream.sync_protocol_pagination 
-    WHERE protocol_name = '${mainSyncProtocolName}' 
-    ORDER BY page_number ASC
-    LIMIT 1
-  `);
-  if (!result || !result.rows.length) {
-    throw new Error("DB is empty");
-  }
-  launchStartTime =
-    result.rows[0].page.root - result.rows[0].page_number * 1000;
-} catch {
-  // This is not an error.
-  // Do nothing, the DB has not been initialized yet.
-}
+let arbTip: number = 1;
 
 export const config = new ConfigBuilder()
   .setNamespace((builder) => builder.setSecurityNamespace("[scope]"))
@@ -59,7 +38,12 @@ export const config = new ConfigBuilder()
         blockTimeMS: 1000,
       })
       .addViemNetwork({
-        ...hardhat,
+        ...arbitrum,
+        rpcUrls: {
+          default: {
+            http: [EVM_RPC_URL],
+          },
+        },
         name: "evmMain",
       })
       .addNetwork({
@@ -81,7 +65,7 @@ export const config = new ConfigBuilder()
           type: ConfigSyncProtocolType.NTP_MAIN,
           chainUri: "",
           startBlockHeight: 1,
-          pollingInterval: 500,
+          pollingInterval: 1000,
         })
       )
       .addParallel(
@@ -90,8 +74,9 @@ export const config = new ConfigBuilder()
           name: "mainEvmRPC",
           type: ConfigSyncProtocolType.EVM_RPC_PARALLEL,
           chainUri: network.rpcUrls.default.http[0],
-          startBlockHeight: 1,
-          pollingInterval: 500,
+          startBlockHeight: arbTip,
+          pollingInterval: 1000,
+          stepSize: 9,
           confirmationDepth: 0,
         })
       )
@@ -101,10 +86,11 @@ export const config = new ConfigBuilder()
           name: "parallelMidnight",
           type: ConfigSyncProtocolType.MIDNIGHT_PARALLEL,
           startBlockHeight: 1,
-          pollingInterval: 1000,
+          pollingInterval: 6000,
           indexer: midnightNetworkConfig.indexer,
           indexerWs: midnightNetworkConfig.indexerWS,
-          delayMs: 30000,
+          delayMs: 60000,
+          stepSize: 2,
         })
       )
   )
@@ -117,7 +103,7 @@ export const config = new ConfigBuilder()
           type: builtin.PrimitiveTypeEVMPaimaL2,
           startBlockHeight: 0,
           contractAddress:
-            contractAddressesEvmMain().chain31337[
+            contractAddressesEvmMain().chain42161[
               "effectstreaml2Module#effectstreaml2"
             ],
           stateMachinePrefix: `event_evm_effectstreaml2`,
@@ -132,8 +118,8 @@ export const config = new ConfigBuilder()
           contractAddress: readMidnightContract(
             "contract-midnight-data",
             {
-              contractFileName: "contract-midnight-data.json",
-              baseDir,
+              baseDir: resolve(currentDir, "..", "..", "contracts", "midnight-contracts"),
+              networkId: midnightNetworkConfig.id,
             },
           ).contractAddress,
           stateMachinePrefix: "event_midnight",

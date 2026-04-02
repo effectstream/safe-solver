@@ -1,13 +1,13 @@
-// main.dev.ts — Local development runtime
-// - config-dev: hardhat EVM + local Midnight (networkId: undeployed)
+// main.mainnet.ts — Production / Midnight mainnet runtime
+// - config-mainnet: Arbitrum One EVM + Midnight mainnet
 // NOTE: validate-env must be first import — runs before config modules that crash on missing vars
-import "./validate-env.dev.ts";
+import "./validate-env.mainnet.ts";
 // NOTE: onchain-runtime import is a workaround to preload the wasm module.
 import "@midnight-ntwrk/onchain-runtime";
 
 import { init, start } from "@paimaexample/runtime";
 import { main, suspend } from "effection";
-import { config } from "@safe-solver/data-types/config-dev";
+import { config } from "@safe-solver/data-types/config-mainnet";
 import {
   type SyncProtocolWithNetwork,
   toSyncProtocolWithNetwork,

@@ -8,10 +8,7 @@ import {
 import { hardhat } from "viem/chains";
 import { LocalWallet } from "@thirdweb-dev/wallets";
 import { getChainByChainIdAsync } from "@thirdweb-dev/chains";
-// import { showCustomAlert } from "./Utils";
 import { effectStreamService } from "./EffectStreamService";
-// import { state } from "./GameState";
-// import { updateTokenDisplay } from "./GameLogic";
 import { EngineConfig } from "./EffectStreamEngineConfig";
 
 interface IWallet {
@@ -35,6 +32,17 @@ export interface WalletOption {
 
 let localWallet: IWallet | null = null;
 let connectedWallet: IWallet | null = null;
+let midnightAddress: string | null = null;
+
+export function truncateAddress(addr: string): string {
+  if (addr.startsWith("0x") && addr.length > 12) {
+    return addr.substring(0, 6) + '...' + addr.substring(addr.length - 4);
+  }
+  if (addr.startsWith("mn_") && addr.length > 16) {
+    return addr.substring(0, 10) + '...' + addr.substring(addr.length - 4);
+  }
+  return addr;
+}
 
 export function getConnectedWallet() {
   return connectedWallet;
@@ -42,6 +50,10 @@ export function getConnectedWallet() {
 
 export function getLocalWallet() {
   return localWallet;
+}
+
+export function getMidnightAddress() {
+  return midnightAddress;
 }
 
 export async function initializeLocalWallet() {
@@ -84,6 +96,143 @@ export async function initializeLocalWallet() {
   }
 }
 
+/**
+ * Check on page load if the local wallet already has a delegation.
+ * If so, update the Connect Wallet button and SET PLAYER NAME button.
+ */
+export async function checkExistingDelegation() {
+  const connectWalletBtn = document.getElementById('btn-connect-wallet');
+
+  let local = localWallet;
+  if (!local) {
+    local = await initializeLocalWallet();
+  }
+  if (!local) return;
+
+  try {
+    const info = await effectStreamService.getAddressInfo(local.walletAddress);
+    if (info && info.account_id !== null) {
+      const delegation = await effectStreamService.getDelegation(info.account_id);
+      if (delegation && delegation.delegate_to_address) {
+        midnightAddress = delegation.delegate_to_address;
+        if (connectWalletBtn) {
+          connectWalletBtn.textContent = "WALLET CONNECTED";
+        }
+      }
+    }
+  } catch (e) {
+    // Not found or error — no delegation yet
+  }
+}
+
+export async function updateSetNameButtonLabel() {
+  const btnSetName = document.getElementById('btn-set-name');
+  if (!btnSetName) return;
+
+  btnSetName.style.display = 'inline-block';
+
+  let wallet = getConnectedWallet();
+  let local = getLocalWallet();
+  if (!local) {
+    local = await initializeLocalWallet();
+  }
+
+  // Determine the effective address (Account Primary Address if available)
+  let effectiveAddress: string | null = null;
+  const currentAddress = midnightAddress || (wallet && wallet.walletAddress) || (local && local.walletAddress);
+
+  if (currentAddress) {
+    try {
+      const info = await effectStreamService.getAddressInfo(currentAddress);
+      if (info && info.account_id !== null) {
+        const accountInfo = await effectStreamService.getAccountInfo(info.account_id);
+        if (accountInfo && accountInfo.primary_address) {
+          effectiveAddress = accountInfo.primary_address;
+        }
+      }
+    } catch (e) {
+      console.error("Error determining primary address", e);
+    }
+
+    // Fallback to current address if not part of account or check failed
+    if (!effectiveAddress) {
+      effectiveAddress = currentAddress;
+    }
+  }
+
+  if (!effectiveAddress) {
+    btnSetName.textContent = "SET PLAYER NAME";
+    return;
+  }
+
+  // 1. Get User Account Name (using effective address)
+  let nameFound = false;
+  try {
+    const profile = await effectStreamService.getUserProfile(effectiveAddress);
+    if (profile && profile.name) {
+      btnSetName.textContent = profile.name;
+      nameFound = true;
+    }
+  } catch (e) {
+    // ignore
+  }
+
+  if (nameFound) return;
+
+  // 2. Use Effective Address (truncated, full on hover)
+  btnSetName.textContent = truncateAddress(effectiveAddress);
+  btnSetName.title = effectiveAddress;
+}
+
+/**
+ * Connect to the Midnight extension wallet via dapp-connector-api.
+ * Returns the address from the wallet, or null if not available.
+ */
+export async function connectMidnightWallet(): Promise<string | null> {
+  try {
+    // Wait a bit for wallets to inject
+    await new Promise(resolve => setTimeout(resolve, 200));
+
+    const injectedWallets = await allInjectedWallets({ signatureSupport: false, transactionSupport: false });
+    const midnightWallets = injectedWallets?.[WalletMode.Midnight] ?? [];
+
+    if (!midnightWallets.length) {
+      console.warn("No Midnight wallet extension found");
+      alert("No Midnight wallet extension found. Please install the Midnight Lace wallet.");
+      return null;
+    }
+
+    // Connect to the first available Midnight wallet
+    const wallet = midnightWallets[0];
+    console.log("Connecting to Midnight wallet:", wallet.metadata.displayName);
+
+    const loginOptions = {
+      mode: WalletMode.Midnight,
+      preference: { name: wallet.metadata.name },
+      preferBatchedMode: false,
+      networkId: import.meta.env.VITE_MIDNIGHT_NETWORK_ID,
+    };
+
+    const result = await walletLogin(loginOptions as any);
+
+    if (!result.success) {
+      console.error("Midnight wallet login failed:", result.errorMessage);
+      alert("Failed to connect Midnight wallet: " + result.errorMessage);
+      return null;
+    }
+
+    connectedWallet = { ...result.result, mode: WalletMode.Midnight };
+    midnightAddress = connectedWallet.walletAddress;
+    console.log("Midnight wallet connected, address:", midnightAddress);
+
+    return midnightAddress;
+  } catch (e) {
+    console.error("Failed to connect Midnight wallet", e);
+    alert("Failed to connect Midnight wallet.");
+    return null;
+  }
+}
+
 export async function getAvailableWallets(): Promise<WalletOption[]> {
   const wallets: WalletOption[] = [];
 
@@ -92,7 +241,7 @@ export async function getAvailableWallets(): Promise<WalletOption[]> {
     // Wait a bit for wallets to inject
     await new Promise(resolve => setTimeout(resolve, 200));
 
-    const injectedWallets = await allInjectedWallets();
+    const injectedWallets = await allInjectedWallets({ signatureSupport: false, transactionSupport: false });
 
     if (injectedWallets) {
       for (const [modeStr, walletList] of Object.entries(injectedWallets)) {

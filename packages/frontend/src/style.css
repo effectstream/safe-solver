@@ -96,14 +96,22 @@ body {
   border-left: 2px solid #333;
   padding: 20px;
   box-sizing: border-box;
-  overflow-y: auto;
+  overflow: hidden;
   display: none;
+  flex-direction: column;
 }
 
 @media (min-width: 800px) {
   #leaderboard {
-    display: block;
+    display: flex;
   }
+}
+
+#leaderboard-panel,
+#achievements-list {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
 }
 
 #leaderboard h2 {
@@ -112,6 +120,87 @@ body {
   border-bottom: 1px solid #333;
   padding-bottom: 10px;
   text-align: center;
+}
+
+/* Sidebar Tabs */
+#sidebar-tabs {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+  padding-top: 10px;
+  border-top: 1px solid #333;
+}
+.sidebar-tab {
+  flex: 1;
+  font-family: "BBH Bogle", sans-serif;
+  font-size: 12px;
+  padding: 6px 0;
+  background: transparent;
+  color: #888;
+  border: 1px solid #444;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.sidebar-tab:hover {
+  color: #ffd700;
+  border-color: #ffd700;
+}
+.sidebar-tab.active {
+  background: rgba(255, 215, 0, 0.12);
+  border-color: #ffd700;
+  color: #ffd700;
+}
+
+/* Achievement Items */
+.achievement-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  border-bottom: 1px solid #333;
+  border-radius: 4px;
+  margin-bottom: 4px;
+  transition: opacity 0.2s;
+}
+.achievement-item:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+}
+.achievement-item.locked {
+  opacity: 0.35;
+}
+.achievement-item.unlocked {
+  opacity: 1;
+}
+.achievement-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 6px;
+  object-fit: cover;
+  flex-shrink: 0;
+  border: 1px solid #555;
+}
+.achievement-item.unlocked .achievement-icon {
+  border-color: #ffd700;
+  box-shadow: 0 0 6px rgba(255, 215, 0, 0.3);
+}
+.achievement-info {
+  flex: 1;
+  min-width: 0;
+}
+.achievement-name {
+  font-family: "BBH Bogle", sans-serif;
+  font-size: 0.85em;
+  color: #ccc;
+}
+.achievement-item.unlocked .achievement-name {
+  color: #fff;
+}
+.achievement-desc {
+  font-size: 0.75em;
+  color: #777;
+  margin-top: 2px;
 }
 
 #leaderboard-header {
@@ -383,4 +472,72 @@ body {
 .toast.show {
   opacity: 1;
   transform: translateY(0);
+}
+
+/* Footer */
+#footer-bar {
+  position: fixed;
+  bottom: 6px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  z-index: 100;
+}
+
+#footer-link {
+  color: #888;
+  font-family: "BBH Bogle", sans-serif;
+  font-size: 13px;
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+#footer-link:hover {
+  color: #ffd700;
+}
+
+.footer-overlay-box {
+  background: #1a1a1a !important;
+  color: #e0e0e0 !important;
+  border: 1px solid #ffd700;
+}
+
+.footer-overlay-box .close {
+  color: #aaa;
+}
+
+.footer-overlay-box .close:hover {
+  color: #fff;
+}
+
+.footer-btn {
+  display: inline-block;
+  font-family: "BBH Bogle", sans-serif;
+  font-size: 14px;
+  padding: 10px 20px;
+  border-radius: 6px;
+  text-decoration: none;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.footer-btn-primary {
+  background: #ffd700;
+  color: #222;
+  border: 2px solid #ffd700;
+}
+
+.footer-btn-primary:hover {
+  background: #ffec57;
+}
+
+.footer-btn-outline {
+  background: transparent;
+  color: #ffd700;
+  border: 2px solid #ffd700;
+}
+
+.footer-btn-outline:hover {
+  background: rgba(255, 215, 0, 0.1);
 }

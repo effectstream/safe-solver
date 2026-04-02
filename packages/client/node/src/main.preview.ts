@@ -1,13 +1,13 @@
-// NOTE & TODO:
-// Importing "@midnight-ntwrk/onchain-runtime" here is a workaround.
-// Loading this package in a dependency makes the onchain-runtime wasm
-// fail in runtime when trying to parse the state.
-// The next line is so that the wasm is loaded and not optimized away.
+// main.preview.ts — Preview/staging runtime
+// - config-preview: Arbitrum Sepolia EVM + Midnight preview
+// NOTE: validate-env must be first import — runs before config modules that crash on missing vars
+import "./validate-env.preview.ts";
+// NOTE: onchain-runtime import is a workaround to preload the wasm module.
 import "@midnight-ntwrk/onchain-runtime";
 
 import { init, start } from "@paimaexample/runtime";
 import { main, suspend } from "effection";
-import { config } from "@safe-solver/data-types/config-testnet";
+import { config } from "@safe-solver/data-types/config-preview";
 import {
   type SyncProtocolWithNetwork,
   toSyncProtocolWithNetwork,

@@ -1,12 +1,13 @@
 import {
   deployMidnightContract,
-  type DeployConfig,
 } from "@paimaexample/midnight-contracts/deploy";
 
 import {
   midnight_data,
   witnesses as midnightDataWitnesses,
 } from "./contract-midnight-data/src/index.original.ts";
+
+import type { DeployConfig } from "@paimaexample/midnight-contracts/types";
 
 const configs: DeployConfig[] = [
   {
