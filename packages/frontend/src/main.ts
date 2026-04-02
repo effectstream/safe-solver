@@ -1,6 +1,7 @@
 import TWEEN from '@tweenjs/tween.js';
 import { effectStreamService } from './EffectStreamService';
-import { initializeLocalWallet, checkExistingDelegation } from './EffectStreamWallet';
+import type { AchievementInfo } from './EffectStreamService';
+import { initializeLocalWallet, checkExistingDelegation, getLocalWallet, getConnectedWallet, getMidnightAddress } from './EffectStreamWallet';
 
 import { scene, camera, renderer, initScene, backgroundTexture } from './Scene';
 import { showMainScreen, startGame, cashOut, updateTokenDisplay } from './GameLogic';
@@ -107,6 +108,90 @@ window.addEventListener('click', (event) => {
         footerOverlay.style.display = 'none';
     }
 });
+
+// Sidebar tabs (leaderboard / achievements)
+let activeTab: "leaderboard" | "achievements" = "leaderboard";
+
+function initSidebarTabs() {
+  const tabs = document.querySelectorAll<HTMLButtonElement>('.sidebar-tab');
+  const sidebarTitle = document.getElementById('sidebar-title');
+  const leaderboardPanel = document.getElementById('leaderboard-panel');
+  const achievementsList = document.getElementById('achievements-list');
+
+  tabs.forEach((tab) => {
+    tab.addEventListener('click', () => {
+      const target = tab.dataset.tab as "leaderboard" | "achievements";
+      if (!target || target === activeTab) return;
+      activeTab = target;
+
+      tabs.forEach((t) => t.classList.toggle('active', t.dataset.tab === target));
+
+      if (target === 'leaderboard') {
+        if (sidebarTitle) sidebarTitle.innerText = 'Leaderboard';
+        if (leaderboardPanel) leaderboardPanel.style.display = '';
+        if (achievementsList) achievementsList.style.display = 'none';
+      } else {
+        if (sidebarTitle) sidebarTitle.innerText = 'Achievements';
+        if (leaderboardPanel) leaderboardPanel.style.display = 'none';
+        if (achievementsList) achievementsList.style.display = '';
+        loadAchievements();
+      }
+    });
+  });
+}
+
+function renderAchievements(allAchievements: AchievementInfo[], unlockedIds: string[]) {
+  const container = document.getElementById('achievements-list');
+  if (!container) return;
+  container.innerHTML = '';
+
+  const unlockedSet = new Set(unlockedIds);
+
+  allAchievements.forEach((ach) => {
+    const unlocked = unlockedSet.has(ach.name);
+    const item = document.createElement('div');
+    item.className = `achievement-item ${unlocked ? 'unlocked' : 'locked'}`;
+
+    const img = document.createElement('img');
+    img.className = 'achievement-icon';
+    img.src = ach.iconURI || '';
+    img.alt = ach.displayName;
+    img.loading = 'lazy';
+    item.appendChild(img);
+
+    const info = document.createElement('div');
+    info.className = 'achievement-info';
+
+    const name = document.createElement('div');
+    name.className = 'achievement-name';
+    name.textContent = ach.displayName;
+    info.appendChild(name);
+
+    const desc = document.createElement('div');
+    desc.className = 'achievement-desc';
+    desc.textContent = ach.description;
+    info.appendChild(desc);
+
+    item.appendChild(info);
+    container.appendChild(item);
+  });
+}
+
+async function loadAchievements() {
+  const allAchievements = await effectStreamService.getAchievements();
+
+  let unlockedIds: string[] = [];
+  const connected = getConnectedWallet();
+  const local = getLocalWallet();
+  const addr = getMidnightAddress() || (connected && connected.walletAddress) || (local && local.walletAddress);
+  if (addr) {
+    unlockedIds = await effectStreamService.getUserAchievements(addr);
+  }
+
+  renderAchievements(allAchievements, unlockedIds);
+}
+
+initSidebarTabs();
 
 // Initialize Drill
 const drill = new Drill();

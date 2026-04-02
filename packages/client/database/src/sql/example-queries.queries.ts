@@ -1025,14 +1025,232 @@ export interface IGetAchievementIdsByPrefixQuery {
   result: IGetAchievementIdsByPrefixResult;
 }
 
-const getAchievementIdsByPrefixIR: any = {"usedParamSet":{"prefix":true},"params":[{"name":"prefix","required":true,"transform":{"type":"scalar"},"locs":[{"a":42,"b":49}]}],"statement":"SELECT id FROM achievements WHERE id LIKE :prefix! ORDER BY order_id ASC"};
+const getAchievementIdsByPrefixIR: any = {"usedParamSet":{"prefix":true},"params":[{"name":"prefix","required":true,"transform":{"type":"scalar"},"locs":[{"a":42,"b":49}]}],"statement":"SELECT id FROM achievements WHERE id LIKE :prefix! ORDER BY order_id ASC                                   "};
 
 /**
  * Query generated from SQL:
  * ```
- * SELECT id FROM achievements WHERE id LIKE :prefix! ORDER BY order_id ASC
+ * SELECT id FROM achievements WHERE id LIKE :prefix! ORDER BY order_id ASC                                   
  * ```
  */
 export const getAchievementIdsByPrefix = new PreparedQuery<IGetAchievementIdsByPrefixParams,IGetAchievementIdsByPrefixResult>(getAchievementIdsByPrefixIR);
+
+
+/** 'GetResolvedIdentityByAddress' parameters type */
+export interface IGetResolvedIdentityByAddressParams {
+  address: string;
+}
+
+/** 'GetResolvedIdentityByAddress' return type */
+export interface IGetResolvedIdentityByAddressResult {
+  account_id: number | null;
+  display_name: string | null;
+  is_delegate: boolean | null;
+  queried_address: string;
+  resolved_address: string | null;
+}
+
+/** 'GetResolvedIdentityByAddress' query type */
+export interface IGetResolvedIdentityByAddressQuery {
+  params: IGetResolvedIdentityByAddressParams;
+  result: IGetResolvedIdentityByAddressResult;
+}
+
+const getResolvedIdentityByAddressIR: any = {"usedParamSet":{"address":true},"params":[{"name":"address","required":true,"transform":{"type":"scalar"},"locs":[{"a":560,"b":568}]}],"statement":"SELECT\n  addr.account_id AS account_id,\n  addr.address AS queried_address,\n  COALESCE(d.delegate_to_address, a.primary_address) AS resolved_address,\n  (addr.address <> COALESCE(d.delegate_to_address, a.primary_address)) AS is_delegate,\n  COALESCE(u.name, COALESCE(d.delegate_to_address, a.primary_address, addr.address)) AS display_name\nFROM effectstream.addresses addr\nLEFT JOIN effectstream.accounts a ON addr.account_id = a.id\nLEFT JOIN delegations d ON addr.account_id = d.account_id\nLEFT JOIN user_game_state u ON a.id = u.account_id\nWHERE addr.address = :address!"};
+
+/**
+ * Query generated from SQL:
+ * ```
+ * SELECT
+ *   addr.account_id AS account_id,
+ *   addr.address AS queried_address,
+ *   COALESCE(d.delegate_to_address, a.primary_address) AS resolved_address,
+ *   (addr.address <> COALESCE(d.delegate_to_address, a.primary_address)) AS is_delegate,
+ *   COALESCE(u.name, COALESCE(d.delegate_to_address, a.primary_address, addr.address)) AS display_name
+ * FROM effectstream.addresses addr
+ * LEFT JOIN effectstream.accounts a ON addr.account_id = a.id
+ * LEFT JOIN delegations d ON addr.account_id = d.account_id
+ * LEFT JOIN user_game_state u ON a.id = u.account_id
+ * WHERE addr.address = :address!
+ * ```
+ */
+export const getResolvedIdentityByAddress = new PreparedQuery<IGetResolvedIdentityByAddressParams,IGetResolvedIdentityByAddressResult>(getResolvedIdentityByAddressIR);
+
+
+/** 'GetDelegatedFromAddresses' parameters type */
+export interface IGetDelegatedFromAddressesParams {
+  resolved_address: string;
+}
+
+/** 'GetDelegatedFromAddresses' return type */
+export interface IGetDelegatedFromAddressesResult {
+  address: string | null;
+}
+
+/** 'GetDelegatedFromAddresses' query type */
+export interface IGetDelegatedFromAddressesQuery {
+  params: IGetDelegatedFromAddressesParams;
+  result: IGetDelegatedFromAddressesResult;
+}
+
+const getDelegatedFromAddressesIR: any = {"usedParamSet":{"resolved_address":true},"params":[{"name":"resolved_address","required":true,"transform":{"type":"scalar"},"locs":[{"a":137,"b":154}]}],"statement":"SELECT a.primary_address AS address\nFROM delegations d\nJOIN effectstream.accounts a ON d.account_id = a.id\nWHERE d.delegate_to_address = :resolved_address!"};
+
+/**
+ * Query generated from SQL:
+ * ```
+ * SELECT a.primary_address AS address
+ * FROM delegations d
+ * JOIN effectstream.accounts a ON d.account_id = a.id
+ * WHERE d.delegate_to_address = :resolved_address!
+ * ```
+ */
+export const getDelegatedFromAddresses = new PreparedQuery<IGetDelegatedFromAddressesParams,IGetDelegatedFromAddressesResult>(getDelegatedFromAddressesIR);
+
+
+/** 'GetTotalUniqueMainWallets' parameters type */
+export type IGetTotalUniqueMainWalletsParams = void;
+
+/** 'GetTotalUniqueMainWallets' return type */
+export interface IGetTotalUniqueMainWalletsResult {
+  total: number | null;
+}
+
+/** 'GetTotalUniqueMainWallets' query type */
+export interface IGetTotalUniqueMainWalletsQuery {
+  params: IGetTotalUniqueMainWalletsParams;
+  result: IGetTotalUniqueMainWalletsResult;
+}
+
+const getTotalUniqueMainWalletsIR: any = {"usedParamSet":{},"params":[],"statement":"SELECT COUNT(DISTINCT delegated_to)::int AS total\nFROM score_entries"};
+
+/**
+ * Query generated from SQL:
+ * ```
+ * SELECT COUNT(DISTINCT delegated_to)::int AS total
+ * FROM score_entries
+ * ```
+ */
+export const getTotalUniqueMainWallets = new PreparedQuery<IGetTotalUniqueMainWalletsParams,IGetTotalUniqueMainWalletsResult>(getTotalUniqueMainWalletsIR);
+
+
+/** 'GetUserAchievementsByResolvedAddress' parameters type */
+export interface IGetUserAchievementsByResolvedAddressParams {
+  end_date: DateOrString;
+  resolved_address: string;
+  start_date: DateOrString;
+}
+
+/** 'GetUserAchievementsByResolvedAddress' return type */
+export interface IGetUserAchievementsByResolvedAddressResult {
+  id: string;
+}
+
+/** 'GetUserAchievementsByResolvedAddress' query type */
+export interface IGetUserAchievementsByResolvedAddressQuery {
+  params: IGetUserAchievementsByResolvedAddressParams;
+  result: IGetUserAchievementsByResolvedAddressResult;
+}
+
+const getUserAchievementsByResolvedAddressIR: any = {"usedParamSet":{"resolved_address":true,"start_date":true,"end_date":true},"params":[{"name":"resolved_address","required":true,"transform":{"type":"scalar"},"locs":[{"a":148,"b":165}]},{"name":"start_date","required":true,"transform":{"type":"scalar"},"locs":[{"a":191,"b":202}]},{"name":"end_date","required":true,"transform":{"type":"scalar"},"locs":[{"a":228,"b":237}]}],"statement":"SELECT DISTINCT ac.achievement_id AS id\nFROM achievement_completions ac\nJOIN achievements ach ON ac.achievement_id = ach.id\nWHERE ac.delegated_to = :resolved_address!\n  AND ac.unlocked_at >= :start_date!\n  AND ac.unlocked_at <= :end_date!\nORDER BY ac.achievement_id"};
+
+/**
+ * Query generated from SQL:
+ * ```
+ * SELECT DISTINCT ac.achievement_id AS id
+ * FROM achievement_completions ac
+ * JOIN achievements ach ON ac.achievement_id = ach.id
+ * WHERE ac.delegated_to = :resolved_address!
+ *   AND ac.unlocked_at >= :start_date!
+ *   AND ac.unlocked_at <= :end_date!
+ * ORDER BY ac.achievement_id
+ * ```
+ */
+export const getUserAchievementsByResolvedAddress = new PreparedQuery<IGetUserAchievementsByResolvedAddressParams,IGetUserAchievementsByResolvedAddressResult>(getUserAchievementsByResolvedAddressIR);
+
+
+/** 'GetUserStatsByResolvedAddress' parameters type */
+export interface IGetUserStatsByResolvedAddressParams {
+  end_date: DateOrString;
+  resolved_address: string;
+  start_date: DateOrString;
+}
+
+/** 'GetUserStatsByResolvedAddress' return type */
+export interface IGetUserStatsByResolvedAddressResult {
+  matches_played: number | null;
+  rank: number | null;
+  score: string | null;
+}
+
+/** 'GetUserStatsByResolvedAddress' query type */
+export interface IGetUserStatsByResolvedAddressQuery {
+  params: IGetUserStatsByResolvedAddressParams;
+  result: IGetUserStatsByResolvedAddressResult;
+}
+
+const getUserStatsByResolvedAddressIR: any = {"usedParamSet":{"resolved_address":true,"start_date":true,"end_date":true},"params":[{"name":"resolved_address","required":true,"transform":{"type":"scalar"},"locs":[{"a":217,"b":234},{"a":270,"b":287}]},{"name":"start_date","required":true,"transform":{"type":"scalar"},"locs":[{"a":496,"b":507},{"a":658,"b":669}]},{"name":"end_date","required":true,"transform":{"type":"scalar"},"locs":[{"a":535,"b":544},{"a":694,"b":703}]}],"statement":"WITH identity AS (\n  SELECT COALESCE(del.delegate_to_address, acc.primary_address) AS delegated_to\n  FROM effectstream.accounts acc\n  LEFT JOIN delegations del ON del.account_id = acc.id\n  WHERE acc.primary_address = :resolved_address!\n     OR del.delegate_to_address = :resolved_address!\n  LIMIT 1\n),\nidentity_score AS (\n  SELECT SUM(se.score) AS total_score, COUNT(*)::int AS matches_played\n  FROM score_entries se, identity i\n  WHERE se.delegated_to = i.delegated_to\n    AND se.achieved_at >= :start_date!\n    AND se.achieved_at <= :end_date!\n),\nall_scores AS (\n  SELECT delegated_to, SUM(score) AS total_score\n  FROM score_entries\n  WHERE achieved_at >= :start_date!\n    AND achieved_at <= :end_date!\n  GROUP BY delegated_to\n)\nSELECT\n  (SELECT COUNT(*)::int + 1 FROM all_scores a, identity_score i WHERE a.total_score > COALESCE(i.total_score, -1)) AS rank,\n  (SELECT total_score FROM identity_score) AS score,\n  (SELECT matches_played FROM identity_score) AS matches_played"};
+
+/**
+ * Query generated from SQL:
+ * ```
+ * WITH identity AS (
+ *   SELECT COALESCE(del.delegate_to_address, acc.primary_address) AS delegated_to
+ *   FROM effectstream.accounts acc
+ *   LEFT JOIN delegations del ON del.account_id = acc.id
+ *   WHERE acc.primary_address = :resolved_address!
+ *      OR del.delegate_to_address = :resolved_address!
+ *   LIMIT 1
+ * ),
+ * identity_score AS (
+ *   SELECT SUM(se.score) AS total_score, COUNT(*)::int AS matches_played
+ *   FROM score_entries se, identity i
+ *   WHERE se.delegated_to = i.delegated_to
+ *     AND se.achieved_at >= :start_date!
+ *     AND se.achieved_at <= :end_date!
+ * ),
+ * all_scores AS (
+ *   SELECT delegated_to, SUM(score) AS total_score
+ *   FROM score_entries
+ *   WHERE achieved_at >= :start_date!
+ *     AND achieved_at <= :end_date!
+ *   GROUP BY delegated_to
+ * )
+ * SELECT
+ *   (SELECT COUNT(*)::int + 1 FROM all_scores a, identity_score i WHERE a.total_score > COALESCE(i.total_score, -1)) AS rank,
+ *   (SELECT total_score FROM identity_score) AS score,
+ *   (SELECT matches_played FROM identity_score) AS matches_played
+ * ```
+ */
+export const getUserStatsByResolvedAddress = new PreparedQuery<IGetUserStatsByResolvedAddressParams,IGetUserStatsByResolvedAddressResult>(getUserStatsByResolvedAddressIR);
+
+
+/** 'GetResolvedAddressByAccountId' parameters type */
+export interface IGetResolvedAddressByAccountIdParams {
+  account_id: number;
+}
+
+/** 'GetResolvedAddressByAccountId' return type */
+export interface IGetResolvedAddressByAccountIdResult {
+  resolved_address: string | null;
+}
+
+/** 'GetResolvedAddressByAccountId' query type */
+export interface IGetResolvedAddressByAccountIdQuery {
+  params: IGetResolvedAddressByAccountIdParams;
+  result: IGetResolvedAddressByAccountIdResult;
+}
+
+const getResolvedAddressByAccountIdIR: any = {"usedParamSet":{"account_id":true},"params":[{"name":"account_id","required":true,"transform":{"type":"scalar"},"locs":[{"a":167,"b":178}]}],"statement":"SELECT COALESCE(d.delegate_to_address, a.primary_address) AS resolved_address\nFROM effectstream.accounts a\nLEFT JOIN delegations d ON d.account_id = a.id\nWHERE a.id = :account_id!"};
+
+/**
+ * Query generated from SQL:
+ * ```
+ * SELECT COALESCE(d.delegate_to_address, a.primary_address) AS resolved_address
+ * FROM effectstream.accounts a
+ * LEFT JOIN delegations d ON d.account_id = a.id
+ * WHERE a.id = :account_id!
+ * ```
+ */
+export const getResolvedAddressByAccountId = new PreparedQuery<IGetResolvedAddressByAccountIdParams,IGetResolvedAddressByAccountIdResult>(getResolvedAddressByAccountIdIR);
 
 

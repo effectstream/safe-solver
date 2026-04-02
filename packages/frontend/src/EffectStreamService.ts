@@ -1,11 +1,20 @@
 import { LeaderboardEntry } from "./EffectStreamLeaderboard";
-import { getLocalWallet } from "./EffectStreamWallet";
+import { getLocalWallet, truncateAddress } from "./EffectStreamWallet";
 import { EngineConfig } from "./EffectStreamEngineConfig";
 import { sendTransaction } from "@paimaexample/wallets";
 import { showToast } from "./Utils";
 import { accountPayload_ as accountPayload } from "@paimaexample/wallets";
 // import { AddressType } from "@paimaexample/wallets";
 import { ENV } from "./EffectStreamEngineConfig";
+
+export interface AchievementInfo {
+  name: string;
+  displayName: string;
+  description: string;
+  isActive: boolean;
+  iconURI?: string;
+  percentCompleted?: number;
+}
 
 class EffectStreamService {
   private async delay(ms: number): Promise<void> {
@@ -170,15 +179,16 @@ class EffectStreamService {
   }
 
   /**
-   * Fetches the leaderboard from GET /v1/game/leaderboard (period, limit, offset).
+   * Fetches the leaderboard from GET /metrics/leaderboard (PRC-6).
    * Maps entries to { name, score } for the UI.
    */
-  async getLeaderboard(options?: { period?: string; limit?: number; offset?: number }): Promise<LeaderboardEntry[]> {
-    const period = options?.period ?? "all_time";
+  async getLeaderboard(options?: { limit?: number; offset?: number; startDate?: string; endDate?: string }): Promise<LeaderboardEntry[]> {
     const limit = options?.limit ?? 50;
     const offset = options?.offset ?? 0;
-    const params = new URLSearchParams({ period, limit: String(limit), offset: String(offset) });
-    const url = `${ENV.API_URL}/v1/game/leaderboard?${params}`;
+    const params = new URLSearchParams({ limit: String(limit), offset: String(offset) });
+    if (options?.startDate) params.set("startDate", options.startDate);
+    if (options?.endDate) params.set("endDate", options.endDate);
+    const url = `${ENV.API_URL}/metrics/leaderboard?${params}`;
     try {
       const response = await fetch(url);
       if (!response.ok) {
@@ -186,17 +196,16 @@ class EffectStreamService {
         return [];
       }
       const data = await response.json();
-      const entries = (data.entries ?? []) as Array<{ rank?: number; address?: string; player_id?: string; display_name?: string | null; score?: number; achievements_unlocked?: number }>;
+      const entries = (data.entries ?? []) as Array<{ rank?: number; address?: string; displayName?: string | null; score?: number }>;
       const mapped: LeaderboardEntry[] = entries.map((e) => {
         const score = e.score != null ? Number(e.score) : 0;
-        let name = e.display_name ?? null;
-        if (!name && e.address) {
-          const addr = e.address;
-          name = addr.length > 10 ? `${addr.slice(0, 6)}...${addr.slice(-4)}` : addr;
+        let name = e.displayName ?? e.address ?? null;
+        if (name) {
+          name = truncateAddress(name);
         }
         return { name: name ?? "Anonymous", score };
       });
-      console.log(`[EffectStreamService] Leaderboard (${data.period ?? period}): ${mapped.length} entries`);
+      console.log(`[EffectStreamService] Leaderboard: ${mapped.length} entries`);
       return mapped;
     } catch (e) {
       console.error("Error fetching leaderboard", e);
@@ -266,9 +275,14 @@ class EffectStreamService {
 
   public async getAddressInfo(address: string): Promise<{ address: string, address_type: number, account_id: number | null } | null> {
     try {
-      const response = await fetch(`${ENV.API_URL}/api/address/${address}`);
+      const response = await fetch(`${ENV.API_URL}/api/user/${address}`);
       if (!response.ok) return null;
-      return await response.json();
+      const data = await response.json();
+      return {
+        address,
+        address_type: 0,
+        account_id: data.accountId >= 0 ? data.accountId : null,
+      };
     } catch (e) {
       console.error("Error fetching address info", e);
       return null;
@@ -442,6 +456,36 @@ class EffectStreamService {
     await this.delay(500);
     console.log(`[MockServer] Response: Name set (queued).`);
     return true;
+  }
+
+  /**
+   * GET /metrics — fetch global achievements list.
+   */
+  async getAchievements(): Promise<AchievementInfo[]> {
+    try {
+      const res = await fetch(`${ENV.API_URL}/metrics`);
+      if (!res.ok) return [];
+      const body: { achievements: AchievementInfo[] } = await res.json();
+      return body.achievements ?? [];
+    } catch (e) {
+      console.error("[EffectStreamService] getAchievements error", e);
+      return [];
+    }
+  }
+
+  /**
+   * GET /metrics/users/:address — fetch user's unlocked achievement IDs.
+   */
+  async getUserAchievements(address: string): Promise<string[]> {
+    try {
+      const res = await fetch(`${ENV.API_URL}/metrics/users/${encodeURIComponent(address)}`);
+      if (!res.ok) return [];
+      const body: { achievements: string[] } = await res.json();
+      return body.achievements ?? [];
+    } catch (e) {
+      console.error("[EffectStreamService] getUserAchievements error", e);
+      return [];
+    }
   }
 
   /**

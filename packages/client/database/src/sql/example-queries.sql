@@ -287,3 +287,71 @@ ON CONFLICT (id) DO UPDATE SET name = :name!, description = :description!, icon_
 
 /* @name GetAchievementIdsByPrefix */
 SELECT id FROM achievements WHERE id LIKE :prefix! ORDER BY order_id ASC;
+
+/* --- PRC-6 Metrics Queries --- */
+
+/* @name GetResolvedIdentityByAddress */
+SELECT
+  addr.account_id AS account_id,
+  addr.address AS queried_address,
+  COALESCE(d.delegate_to_address, a.primary_address) AS resolved_address,
+  (addr.address <> COALESCE(d.delegate_to_address, a.primary_address)) AS is_delegate,
+  COALESCE(u.name, COALESCE(d.delegate_to_address, a.primary_address, addr.address)) AS display_name
+FROM effectstream.addresses addr
+LEFT JOIN effectstream.accounts a ON addr.account_id = a.id
+LEFT JOIN delegations d ON addr.account_id = d.account_id
+LEFT JOIN user_game_state u ON a.id = u.account_id
+WHERE addr.address = :address!;
+
+/* @name GetDelegatedFromAddresses */
+SELECT a.primary_address AS address
+FROM delegations d
+JOIN effectstream.accounts a ON d.account_id = a.id
+WHERE d.delegate_to_address = :resolved_address!;
+
+/* @name GetTotalUniqueMainWallets */
+SELECT COUNT(DISTINCT delegated_to)::int AS total
+FROM score_entries;
+
+/* @name GetUserAchievementsByResolvedAddress */
+SELECT DISTINCT ac.achievement_id AS id
+FROM achievement_completions ac
+JOIN achievements ach ON ac.achievement_id = ach.id
+WHERE ac.delegated_to = :resolved_address!
+  AND ac.unlocked_at >= :start_date!
+  AND ac.unlocked_at <= :end_date!
+ORDER BY ac.achievement_id;
+
+/* @name GetUserStatsByResolvedAddress */
+WITH identity AS (
+  SELECT COALESCE(del.delegate_to_address, acc.primary_address) AS delegated_to
+  FROM effectstream.accounts acc
+  LEFT JOIN delegations del ON del.account_id = acc.id
+  WHERE acc.primary_address = :resolved_address!
+     OR del.delegate_to_address = :resolved_address!
+  LIMIT 1
+),
+identity_score AS (
+  SELECT SUM(se.score) AS total_score, COUNT(*)::int AS matches_played
+  FROM score_entries se, identity i
+  WHERE se.delegated_to = i.delegated_to
+    AND se.achieved_at >= :start_date!
+    AND se.achieved_at <= :end_date!
+),
+all_scores AS (
+  SELECT delegated_to, SUM(score) AS total_score
+  FROM score_entries
+  WHERE achieved_at >= :start_date!
+    AND achieved_at <= :end_date!
+  GROUP BY delegated_to
+)
+SELECT
+  (SELECT COUNT(*)::int + 1 FROM all_scores a, identity_score i WHERE a.total_score > COALESCE(i.total_score, -1)) AS rank,
+  (SELECT total_score FROM identity_score) AS score,
+  (SELECT matches_played FROM identity_score) AS matches_played;
+
+/* @name GetResolvedAddressByAccountId */
+SELECT COALESCE(d.delegate_to_address, a.primary_address) AS resolved_address
+FROM effectstream.accounts a
+LEFT JOIN delegations d ON d.account_id = a.id
+WHERE a.id = :account_id!;
