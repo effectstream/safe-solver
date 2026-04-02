@@ -35,8 +35,13 @@ let connectedWallet: IWallet | null = null;
 let midnightAddress: string | null = null;
 
 export function truncateAddress(addr: string): string {
-  if (addr.length <= 14) return addr;
-  return addr.substring(0, 10) + '...' + addr.substring(addr.length - 4);
+  if (addr.startsWith("0x") && addr.length > 12) {
+    return addr.substring(0, 6) + '...' + addr.substring(addr.length - 4);
+  }
+  if (addr.startsWith("mn_") && addr.length > 16) {
+    return addr.substring(0, 10) + '...' + addr.substring(addr.length - 4);
+  }
+  return addr;
 }
 
 export function getConnectedWallet() {
@@ -205,6 +210,7 @@ export async function connectMidnightWallet(): Promise<string | null> {
       mode: WalletMode.Midnight,
       preference: { name: wallet.metadata.name },
       preferBatchedMode: false,
+      networkId: import.meta.env.VITE_MIDNIGHT_NETWORK_ID,
     };
 
     const result = await walletLogin(loginOptions as any);

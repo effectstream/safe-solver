@@ -1,8 +1,8 @@
-// NOTE & TODO:
-// Importing "@midnight-ntwrk/onchain-runtime" here is a workaround.
-// Loading this package in a dependency makes the onchain-runtime wasm
-// fail in runtime when trying to parse the state.
-// The next line is so that the wasm is loaded and not optimized away.
+// main.dev.ts — Local development runtime
+// - config-dev: hardhat EVM + local Midnight (networkId: undeployed)
+// NOTE: validate-env must be first import — runs before config modules that crash on missing vars
+import "./validate-env.dev.ts";
+// NOTE: onchain-runtime import is a workaround to preload the wasm module.
 import "@midnight-ntwrk/onchain-runtime";
 
 import { init, start } from "@paimaexample/runtime";

@@ -15,9 +15,9 @@ import { dirname, resolve } from "@std/path";
 
 const currentDir = dirname(new URL(import.meta.url).pathname);
 
-const EVM_RPC_URL = Deno.env.get("ARBITRUM_RPC") as string;
+const EVM_RPC_URL = Deno.env.get("ARBITRUM_ONE_RPC") as string;
 if (!EVM_RPC_URL) {
-  throw new Error("ARBITRUM_RPC is not set");
+  throw new Error("ARBITRUM_ONE_RPC is not set");
 }
 if (midnightNetworkConfig.id !== 'mainnet') {
   throw new Error("Invalid midnight network id for mainnet environment");
@@ -65,7 +65,7 @@ export const config = new ConfigBuilder()
           type: ConfigSyncProtocolType.NTP_MAIN,
           chainUri: "",
           startBlockHeight: 1,
-          pollingInterval: 500,
+          pollingInterval: 1000,
         })
       )
       .addParallel(
@@ -86,10 +86,11 @@ export const config = new ConfigBuilder()
           name: "parallelMidnight",
           type: ConfigSyncProtocolType.MIDNIGHT_PARALLEL,
           startBlockHeight: 1,
-          pollingInterval: 1000,
+          pollingInterval: 6000,
           indexer: midnightNetworkConfig.indexer,
           indexerWs: midnightNetworkConfig.indexerWS,
-          delayMs: 30000,
+          delayMs: 60000,
+          stepSize: 2,
         })
       )
   )

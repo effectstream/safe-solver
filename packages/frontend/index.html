@@ -46,17 +46,26 @@
         </div>
         <aside id="leaderboard">
           <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
-            <h2 style="margin: 0;">Leaderboard</h2>
+            <h2 id="sidebar-title" style="margin: 0;">Leaderboard</h2>
             <button id="btn-refresh-leaderboard" style="cursor: pointer; padding: 2px 8px; font-size: 16px; background: none; border: 1px solid white; color: white; border-radius: 4px;" title="Refresh">↻</button>
           </div>
-          <div id="leaderboard-header">
-            <span>Place</span>
-            <span>Address</span>
-            <span>Points</span>
+          <div id="leaderboard-panel">
+            <div id="leaderboard-header">
+              <span>Place</span>
+              <span>Address</span>
+              <span>Points</span>
+            </div>
+            <ul id="leaderboard-list">
+              <!-- Items injected by JS -->
+            </ul>
           </div>
-          <ul id="leaderboard-list">
-            <!-- Items injected by JS -->
-          </ul>
+          <div id="achievements-list" style="display:none;">
+            <!-- Achievement items rendered by JS -->
+          </div>
+          <div id="sidebar-tabs">
+            <button class="sidebar-tab active" data-tab="leaderboard">Leaderboard</button>
+            <button class="sidebar-tab" data-tab="achievements">Achievements</button>
+          </div>
         </aside>
       </div>
     </div>

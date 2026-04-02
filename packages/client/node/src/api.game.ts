@@ -91,7 +91,7 @@ export const apiGame = async (
     if (!addressInfo || !addressInfo.account_id) {
       // New user or no account yet
       reply.send({
-        accountId: 0,
+        accountId: -1,
         balance: 0,
         lastLogin: Date.now(),
         name: `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}`,
@@ -106,7 +106,7 @@ export const apiGame = async (
 
     if (!profile) {
       reply.send({
-        accountId: 0,
+        accountId: -1,
         balance: 0,
         lastLogin: Date.now(),
         name: `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}`,

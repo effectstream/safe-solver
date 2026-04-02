@@ -1,95 +1,429 @@
 import { type Static, Type } from "@sinclair/typebox";
 import { runPreparedQuery } from "@paimaexample/db";
 import {
-  getAddressByAddress,
-  getAccountById,
-  getAddressesByAccountId,
-  getDelegationByAccountId,
-  getGameInfo,
   getAchievementsWithCompletedCount,
-  getLeaderboardTotalPlayers,
-  getLeaderboardEntries,
-  getIdentityResolution,
-  getUserProfileStats,
-  getUserAchievementIds,
-  getAccountProfile,
-} from "@safe-solver/database";
-import type {
-  IGetGameInfoResult,
-  IGetAchievementsWithCompletedCountResult,
-  IGetLeaderboardTotalPlayersResult,
-  IGetLeaderboardEntriesResult,
-  IGetIdentityResolutionResult,
-  IGetUserProfileStatsResult,
-  IGetUserAchievementIdsResult,
-  IGetAccountProfileResult,
+  getDelegatedFromAddresses,
+  getGameInfo,
+  getResolvedAddressByAccountId,
+  getResolvedIdentityByAddress,
+  getTotalUniqueMainWallets,
+  getUserAchievementsByResolvedAddress,
+  getUserStatsByResolvedAddress,
 } from "@safe-solver/database";
 import type { Pool } from "pg";
 import type fastify from "fastify";
 
-const GAME_API_PREFIX = "/v1/game";
+const CHANNEL_ID = "leaderboard";
 
 export const apiCommon = async (
   server: fastify.FastifyInstance,
   dbConn: Pool
 ): Promise<void> => {
+  await Promise.resolve();
 
-  // Address Endpoint
-  const AddressParamsSchema = Type.Object({
-    address: Type.String(),
+  // ==========================================================================
+  // GET /metrics — Application metadata, achievements, and channels (PRC-6)
+  // ==========================================================================
+
+  const AchievementInfoSchema = Type.Object({
+    name: Type.String(),
+    displayName: Type.String(),
+    description: Type.String(),
+    isActive: Type.Boolean(),
+    iconURI: Type.Optional(Type.String()),
+    percentCompleted: Type.Optional(Type.Number()),
   });
 
-  const AddressResponseSchema = Type.Object({
-    address: Type.String(),
-    address_type: Type.Number(),
-    account_id: Type.Union([Type.Number(), Type.Null()]),
+  const ChannelSchema = Type.Object({
+    id: Type.String(),
+    name: Type.String(),
+    description: Type.String(),
+    scoreUnit: Type.String(),
+    sortOrder: Type.String(),
+    type: Type.Optional(Type.String()),
+  });
+
+  const MetricsResponseSchema = Type.Object({
+    name: Type.String(),
+    description: Type.String(),
+    achievements: Type.Array(AchievementInfoSchema),
+    channels: Type.Array(ChannelSchema),
   });
 
   server.get<{
-    Params: Static<typeof AddressParamsSchema>;
-    Reply: Static<typeof AddressResponseSchema> | { error: string };
-  }>("/api/address/:address", async (request, reply) => {
-    const { address } = request.params;
-    const [result] = await runPreparedQuery(
-      getAddressByAddress.run({ address }, dbConn),
-      "getAddressByAddress"
+    Reply: Static<typeof MetricsResponseSchema>;
+  }>("/metrics", async (_request, reply) => {
+    const [meta] = await runPreparedQuery(
+      getGameInfo.run(void 0, dbConn),
+      "getGameInfo"
     );
 
-    if (!result) {
+    const achievements = await runPreparedQuery(
+      getAchievementsWithCompletedCount.run(void 0, dbConn),
+      "getAchievementsWithCompletedCount"
+    );
+
+    const [totalRow] = await runPreparedQuery(
+      getTotalUniqueMainWallets.run(void 0, dbConn),
+      "getTotalUniqueMainWallets"
+    );
+    const totalPlayers = totalRow?.total ?? 0;
+
+    reply.send({
+      name: meta?.name ?? "Unknown Game",
+      description: meta?.description ?? "",
+      achievements: achievements.map((a) => ({
+        name: a.id,
+        displayName: a.name,
+        description: a.description,
+        isActive: true,
+        iconURI: a.icon_url,
+        percentCompleted:
+          totalPlayers > 0
+            ? Math.round(
+                (Number(a.completed_count ?? "0") / totalPlayers) * 10000
+              ) / 100
+            : 0,
+      })),
+      channels: [
+        {
+          id: CHANNEL_ID,
+          name: "Leaderboard",
+          description: "Total score rankings",
+          scoreUnit: meta?.score_unit ?? "Points",
+          sortOrder: meta?.sort_order ?? "DESC",
+          type: "cumulative",
+        },
+      ],
+    });
+  });
+
+  // ==========================================================================
+  // GET /metrics/:channel — Ranked entries for a channel (PRC-6)
+  // ==========================================================================
+
+  const ChannelLeaderboardQuerySchema = Type.Object({
+    startDate: Type.Optional(Type.String()),
+    endDate: Type.Optional(Type.String()),
+    limit: Type.Optional(Type.Number()),
+    offset: Type.Optional(Type.Number()),
+    minAchievements: Type.Optional(Type.Number()),
+  });
+
+  const LeaderboardEntrySchema = Type.Object({
+    rank: Type.Number(),
+    address: Type.String(),
+    displayName: Type.Optional(Type.String()),
+    score: Type.Number(),
+  });
+
+  const ChannelLeaderboardResponseSchema = Type.Object({
+    channel: Type.String(),
+    startDate: Type.String(),
+    endDate: Type.String(),
+    totalPlayers: Type.Number(),
+    totalScore: Type.Number(),
+    entries: Type.Array(LeaderboardEntrySchema),
+  });
+
+  server.get<{
+    Params: { channel: string };
+    Querystring: Static<typeof ChannelLeaderboardQuerySchema>;
+    Reply:
+      | Static<typeof ChannelLeaderboardResponseSchema>
+      | { error: string };
+  }>("/metrics/:channel", async (request, reply) => {
+    const { channel } = request.params;
+
+    if (channel === "users") {
+      // Avoid clashing with /metrics/users/:address
+      reply.code(404).send({ error: "Unknown channel" });
+      return;
+    }
+
+    if (channel !== CHANNEL_ID) {
+      reply.code(404).send({ error: `Unknown channel: ${channel}` });
+      return;
+    }
+
+    const { startDate, endDate, limit, offset, minAchievements } =
+      request.query;
+
+    const now = new Date();
+    const end = endDate ? new Date(endDate) : now;
+    const start = startDate
+      ? new Date(startDate)
+      : new Date(end.getTime() - 365 * 24 * 60 * 60 * 1000);
+
+    const safeLimit =
+      typeof limit === "number" && limit > 0 ? Math.min(limit, 1000) : 50;
+    const safeOffset = typeof offset === "number" && offset >= 0 ? offset : 0;
+    const safeMinAchievements =
+      typeof minAchievements === "number" && minAchievements > 0
+        ? minAchievements
+        : 0;
+
+    const { rows } = await dbConn.query(
+      `WITH identity_scores AS (
+  SELECT delegated_to, SUM(score) AS total_score
+  FROM score_entries
+  WHERE achieved_at >= $1
+    AND achieved_at <= $2
+  GROUP BY delegated_to
+),
+achievement_counts AS (
+  SELECT
+    delegated_to AS resolved_address,
+    COUNT(DISTINCT achievement_id) AS achievements_unlocked
+  FROM achievement_completions
+  GROUP BY delegated_to
+),
+display_names AS (
+  SELECT
+    COALESCE(d.delegate_to_address, a.primary_address) AS resolved_address,
+    MIN(a.id) AS any_account_id
+  FROM effectstream.accounts a
+  LEFT JOIN delegations d ON d.account_id = a.id
+  GROUP BY COALESCE(d.delegate_to_address, a.primary_address)
+),
+ranked AS (
+  SELECT
+    ROW_NUMBER() OVER (ORDER BY iscores.total_score DESC, iscores.delegated_to ASC) AS rank,
+    iscores.delegated_to AS address,
+    COALESCE(u.name, iscores.delegated_to) AS display_name,
+    iscores.total_score AS score,
+    COALESCE(ac.achievements_unlocked, 0) AS achievements_unlocked
+  FROM identity_scores iscores
+  LEFT JOIN display_names dn ON dn.resolved_address = iscores.delegated_to
+  LEFT JOIN user_game_state u ON u.account_id = dn.any_account_id
+  LEFT JOIN achievement_counts ac ON ac.resolved_address = iscores.delegated_to
+)
+SELECT
+  rank,
+  address,
+  display_name,
+  score,
+  COUNT(*) OVER () AS total_players,
+  SUM(score) OVER () AS total_score
+FROM ranked
+WHERE achievements_unlocked >= $3
+ORDER BY rank
+LIMIT $4 OFFSET $5`,
+      [
+        start.toISOString(),
+        end.toISOString(),
+        safeMinAchievements,
+        safeLimit,
+        safeOffset,
+      ]
+    );
+
+    const totalPlayers =
+      rows.length > 0 ? Number(rows[0].total_players ?? "0") : 0;
+    const totalScore =
+      rows.length > 0 ? Number(rows[0].total_score ?? "0") : 0;
+
+    reply.send({
+      channel: CHANNEL_ID,
+      startDate: start.toISOString(),
+      endDate: end.toISOString(),
+      totalPlayers,
+      totalScore,
+      entries: rows.map(
+        (r: {
+          rank: string;
+          address: string;
+          display_name: string | null;
+          score: string;
+        }) => ({
+          rank: Number(r.rank),
+          address: r.address ?? "",
+          displayName: r.display_name ?? undefined,
+          score: Number(r.score ?? 0),
+        })
+      ),
+    });
+  });
+
+  // ==========================================================================
+  // GET /metrics/users/:address — User identity and per-channel stats (PRC-6)
+  // ==========================================================================
+
+  const UserMetricsParamsSchema = Type.Object({
+    address: Type.String(),
+  });
+
+  const UserMetricsQuerySchema = Type.Object({
+    channel: Type.Optional(
+      Type.Union([Type.String(), Type.Array(Type.String())])
+    ),
+    startDate: Type.Optional(Type.String()),
+    endDate: Type.Optional(Type.String()),
+  });
+
+  const IdentitySchema = Type.Object({
+    address: Type.String(),
+    delegatedFrom: Type.Array(Type.String()),
+    displayName: Type.Optional(Type.String()),
+  });
+
+  const ChannelStatsSchema = Type.Object({
+    startDate: Type.Optional(Type.String()),
+    endDate: Type.Optional(Type.String()),
+    stats: Type.Object({
+      score: Type.Number(),
+      rank: Type.Number(),
+      matchesPlayed: Type.Optional(Type.Number()),
+    }),
+  });
+
+  const UserMetricsResponseSchema = Type.Object({
+    identity: IdentitySchema,
+    achievements: Type.Array(Type.String()),
+    channels: Type.Optional(
+      Type.Record(Type.String(), ChannelStatsSchema)
+    ),
+  });
+
+  server.get<{
+    Params: Static<typeof UserMetricsParamsSchema>;
+    Querystring: Static<typeof UserMetricsQuerySchema>;
+    Reply: Static<typeof UserMetricsResponseSchema> | { error: string };
+  }>("/metrics/users/:address", async (request, reply) => {
+    const { address } = request.params;
+    const { channel, startDate, endDate } = request.query;
+
+    // Determine which channels to include
+    const requestedChannels = channel
+      ? Array.isArray(channel)
+        ? channel
+        : [channel]
+      : [CHANNEL_ID];
+    const includeLeaderboard = requestedChannels.includes(CHANNEL_ID);
+
+    // Date range for cumulative channels
+    const now = new Date();
+    const end = endDate ? new Date(endDate) : now;
+    const start = startDate
+      ? new Date(startDate)
+      : new Date(end.getTime() - 365 * 24 * 60 * 60 * 1000);
+
+    // Resolve identity
+    const [identityRow] = await runPreparedQuery(
+      getResolvedIdentityByAddress.run({ address }, dbConn),
+      "getResolvedIdentityByAddress"
+    );
+
+    const resolvedAddress =
+      identityRow?.resolved_address ??
+      identityRow?.queried_address ??
+      address;
+
+    // Fetch delegatedFrom addresses and achievements in parallel
+    const [delegatedFromRows, achievementsRows] = await Promise.all([
+      runPreparedQuery(
+        getDelegatedFromAddresses.run(
+          { resolved_address: resolvedAddress },
+          dbConn
+        ),
+        "getDelegatedFromAddresses"
+      ),
+      runPreparedQuery(
+        getUserAchievementsByResolvedAddress.run(
+          {
+            resolved_address: resolvedAddress,
+            start_date: start.toISOString(),
+            end_date: end.toISOString(),
+          },
+          dbConn
+        ),
+        "getUserAchievementsByResolvedAddress"
+      ),
+    ]);
+
+    // Fetch stats if leaderboard channel requested
+    let statsRow: {
+      rank: number | null;
+      score: string | null;
+      matches_played: number | null;
+    } | undefined;
+
+    if (includeLeaderboard) {
+      const statsRows = await runPreparedQuery(
+        getUserStatsByResolvedAddress.run(
+          {
+            resolved_address: resolvedAddress,
+            start_date: start.toISOString(),
+            end_date: end.toISOString(),
+          },
+          dbConn
+        ),
+        "getUserStatsByResolvedAddress"
+      );
+      statsRow = statsRows[0];
+    }
+
+    const hasIdentity = Boolean(identityRow);
+
+    // If nothing found at all, 404
+    if (
+      !hasIdentity &&
+      !statsRow &&
+      achievementsRows.length === 0
+    ) {
       reply.code(404).send({ error: "Address not found" });
       return;
     }
-    reply.send(result);
+
+    // Build channels object
+    const channels: Record<
+      string,
+      { startDate: string; endDate: string; stats: { score: number; rank: number; matchesPlayed: number } }
+    > = {};
+
+    if (includeLeaderboard) {
+      channels[CHANNEL_ID] = {
+        startDate: start.toISOString(),
+        endDate: end.toISOString(),
+        stats: {
+          score:
+            statsRow && statsRow.score != null
+              ? Number(statsRow.score)
+              : 0,
+          rank:
+            statsRow && statsRow.rank != null
+              ? Number(statsRow.rank)
+              : 0,
+          matchesPlayed:
+            statsRow && statsRow.matches_played != null
+              ? Number(statsRow.matches_played)
+              : 0,
+        },
+      };
+    }
+
+    reply.send({
+      identity: {
+        address: resolvedAddress,
+        delegatedFrom: delegatedFromRows
+          .map((r) => r.address)
+          .filter((a): a is string => a != null),
+        displayName: identityRow?.display_name ?? undefined,
+      },
+      achievements: achievementsRows.map((a) => a.id),
+      channels:
+        Object.keys(channels).length > 0 ? channels : undefined,
+    });
   });
 
-  // Account Endpoint
+  // ==========================================================================
+  // Account Addresses Endpoint (delegation-aware)
+  // ==========================================================================
+
   const AccountParamsSchema = Type.Object({
     id: Type.Number(),
   });
 
-  const AccountResponseSchema = Type.Object({
-    id: Type.Number(),
-    primary_address: Type.Union([Type.String(), Type.Null()]),
-  });
-
-  server.get<{
-    Params: Static<typeof AccountParamsSchema>;
-    Reply: Static<typeof AccountResponseSchema> | { error: string };
-  }>("/api/account/:id", async (request, reply) => {
-    const { id } = request.params;
-    const [result] = await runPreparedQuery(
-      getAccountById.run({ id }, dbConn),
-      "getAccountById"
-    );
-
-    if (!result) {
-      reply.code(404).send({ error: "Account not found" });
-      return;
-    }
-    reply.send(result);
-  });
-
-  // Account Addresses Endpoint
   const AccountAddressesResponseSchema = Type.Array(
     Type.Object({
       address: Type.String(),
@@ -103,251 +437,16 @@ export const apiCommon = async (
     Reply: Static<typeof AccountAddressesResponseSchema>;
   }>("/api/account/:id/addresses", async (request, reply) => {
     const { id } = request.params;
-    const results = await runPreparedQuery(
-      getAddressesByAccountId.run({ account_id: id }, dbConn),
-      "getAddressesByAccountId"
+    const [resolved] = await runPreparedQuery(
+      getResolvedAddressByAccountId.run({ account_id: id }, dbConn),
+      "getResolvedAddressByAccountId"
     );
-    reply.send(results);
-  });
-
-  // Account Delegation Endpoint
-  server.get<{
-    Params: Static<typeof AccountParamsSchema>;
-    Reply: { account_id: number; delegate_to_address: string; delegated_at: string } | { error: string };
-  }>("/api/account/:id/delegation", async (request, reply) => {
-    const { id } = request.params;
-    const [result] = await runPreparedQuery(
-      getDelegationByAccountId.run({ account_id: id }, dbConn),
-      "getDelegationByAccountId"
-    );
-
-    if (!result) {
-      reply.code(404).send({ error: "No delegation found" });
+    if (!resolved?.resolved_address) {
+      reply.send([]);
       return;
     }
-    reply.send({
-      account_id: result.account_id,
-      delegate_to_address: result.delegate_to_address,
-      delegated_at: result.delegated_at.toISOString(),
-    });
-  });
-
-  // ---------- Game Integration API (SPEC v1) ----------
-
-  const GameInfoAchievementSchema = Type.Object({
-    id: Type.String(),
-    name: Type.String(),
-    description: Type.String(),
-    icon_url: Type.String(),
-    completed_count: Type.Number(),
-  });
-
-  const GameInfoResponseSchema = Type.Object({
-    name: Type.String(),
-    description: Type.String(),
-    score_unit: Type.String(),
-    sort_order: Type.Union([Type.Literal("ASC"), Type.Literal("DESC")]),
-    achievements: Type.Array(GameInfoAchievementSchema),
-  });
-
-  server.get<{
-    Reply: Static<typeof GameInfoResponseSchema> | { error: string };
-  }>(`${GAME_API_PREFIX}/info`, async (_request, reply) => {
-    const gameInfoRows = (await runPreparedQuery(
-      getGameInfo.run(undefined, dbConn),
-      "getGameInfo"
-    )) as IGetGameInfoResult[];
-    const [gameInfo] = gameInfoRows;
-    if (!gameInfo) {
-      reply.code(404).send({ error: "Game info not configured" });
-      return;
-    }
-    const achievementRows = (await runPreparedQuery(
-      getAchievementsWithCompletedCount.run(undefined, dbConn),
-      "getAchievementsWithCompletedCount"
-    )) as IGetAchievementsWithCompletedCountResult[];
-    reply.send({
-      name: gameInfo.name,
-      description: gameInfo.description,
-      score_unit: gameInfo.score_unit,
-      sort_order: gameInfo.sort_order as "ASC" | "DESC",
-      achievements: achievementRows.map((a: IGetAchievementsWithCompletedCountResult) => ({
-        id: a.id,
-        name: a.name,
-        description: a.description,
-        icon_url: a.icon_url,
-        completed_count: a.completed_count ?? 0,
-      })),
-    });
-  });
-
-  const LeaderboardEntrySchema = Type.Object({
-    rank: Type.Number(),
-    address: Type.String(),
-    player_id: Type.String(),
-    display_name: Type.Union([Type.String(), Type.Null()]),
-    score: Type.Number(),
-    achievements_unlocked: Type.Number(),
-  });
-
-  const LeaderboardV1ResponseSchema = Type.Object({
-    start_date: Type.String(),
-    end_date: Type.String(),
-    total_players: Type.Number(),
-    entries: Type.Array(LeaderboardEntrySchema),
-  });
-
-  server.get<{
-    Querystring: {
-      limit?: string;
-      offset?: string;
-      start_date?: string;
-      end_date?: string;
-    };
-    Reply: Static<typeof LeaderboardV1ResponseSchema>;
-  }>(`${GAME_API_PREFIX}/leaderboard`, async (request, reply) => {
-    const { limit: rawLimit, offset: rawOffset, start_date, end_date } = request.query;
-    const limit = Math.min(Math.max(1, parseInt(rawLimit ?? "50", 10) || 50), 100);
-    const offset = Math.max(0, parseInt(rawOffset ?? "0", 10) || 0);
-
-    const maybeStartDate =
-      start_date && !Number.isNaN(new Date(start_date).getTime())
-        ? new Date(start_date)
-        : undefined;
-    const maybeEndDate =
-      end_date && !Number.isNaN(new Date(end_date).getTime())
-        ? new Date(end_date)
-        : undefined;
-
-    const effectiveStartDate =
-      maybeStartDate ?? new Date(Date.now() - 365 * 24 * 60 * 60 * 1000);
-    const effectiveEndDate = maybeEndDate ?? new Date();
-
-    const startIso = effectiveStartDate.toISOString();
-    const endIso = effectiveEndDate.toISOString();
-
-    const totalRows = (await runPreparedQuery(
-      getLeaderboardTotalPlayers.run(
-        { start_date: startIso, end_date: endIso } as any,
-        dbConn
-      ),
-      "getLeaderboardTotalPlayers"
-    )) as IGetLeaderboardTotalPlayersResult[];
-    const [totalRow] = totalRows;
-    const entries = (await runPreparedQuery(
-      getLeaderboardEntries.run(
-        { start_date: startIso, end_date: endIso, limit, offset } as any,
-        dbConn
-      ),
-      "getLeaderboardEntries"
-    )) as IGetLeaderboardEntriesResult[];
-    reply.send({
-      start_date: startIso,
-      end_date: endIso,
-      total_players: totalRow?.total_players ?? 0,
-      entries: entries.map((e: IGetLeaderboardEntriesResult) => ({
-        rank: e.rank ?? 0,
-        address: e.address ?? "",
-        player_id: e.player_id ?? "",
-        display_name: e.display_name ?? null,
-        score: e.score != null ? Number(e.score) : 0,
-        achievements_unlocked: e.achievements_unlocked ?? 0,
-      })),
-    });
-  });
-
-  const UserIdentitySchema = Type.Object({
-    queried_address: Type.String(),
-    resolved_address: Type.String(),
-    is_delegate: Type.Boolean(),
-    display_name: Type.Union([Type.String(), Type.Null()]),
-  });
-
-  const UserStatsSchema = Type.Object({
-    rank: Type.Union([Type.Number(), Type.Null()]),
-    score: Type.Number(),
-    matches_played: Type.Union([Type.Number(), Type.Optional(Type.Number())]),
-  });
-
-  const UserProfileV1ResponseSchema = Type.Object({
-    identity: UserIdentitySchema,
-    stats: UserStatsSchema,
-    achievements: Type.Array(Type.String()),
-    start_date: Type.String(),
-    end_date: Type.String(),
-  });
-
-  server.get<{
-    Params: { address: string };
-    Querystring: { start_date?: string; end_date?: string };
-    Reply: Static<typeof UserProfileV1ResponseSchema> | { error: string };
-  }>(`${GAME_API_PREFIX}/users/:address`, async (request, reply) => {
-    const { address } = request.params;
-    const { start_date, end_date } = request.query;
-
-    const maybeStartDate =
-      start_date && !Number.isNaN(new Date(start_date).getTime())
-        ? new Date(start_date)
-        : undefined;
-    const maybeEndDate =
-      end_date && !Number.isNaN(new Date(end_date).getTime())
-        ? new Date(end_date)
-        : undefined;
-
-    const effectiveStartDate =
-      maybeStartDate ?? new Date(Date.now() - 365 * 24 * 60 * 60 * 1000);
-    const effectiveEndDate = maybeEndDate ?? new Date();
-
-    const startIso = effectiveStartDate.toISOString();
-    const endIso = effectiveEndDate.toISOString();
-    const identityRows = (await runPreparedQuery(
-      getIdentityResolution.run({ address }, dbConn),
-      "getIdentityResolution"
-    )) as IGetIdentityResolutionResult[];
-    const [identityRow] = identityRows;
-    if (!identityRow) {
-      reply.code(404).send({ error: "Address not found" });
-      return;
-    }
-
-    const [profileRow] = (await runPreparedQuery(
-      getAccountProfile.run({ account_id: identityRow.account_id }, dbConn),
-      "getAccountProfile"
-    )) as IGetAccountProfileResult[];
-
-    const statsRows = (await runPreparedQuery(
-      getUserProfileStats.run(
-        {
-          account_id: identityRow.account_id,
-          start_date: startIso,
-          end_date: endIso,
-        } as any,
-        dbConn
-      ),
-      "getUserProfileStats"
-    )) as IGetUserProfileStatsResult[];
-    const [statsRow] = statsRows;
-    const achievementRows = (await runPreparedQuery(
-      getUserAchievementIds.run({ account_id: identityRow.account_id }, dbConn),
-      "getUserAchievementIds"
-    )) as IGetUserAchievementIdsResult[];
-
-    const score = statsRow?.score != null ? Number(statsRow.score) : 0;
-    reply.send({
-      identity: {
-        queried_address: address,
-        resolved_address: identityRow.resolved_address ?? address,
-        is_delegate: identityRow.is_delegate ?? false,
-        display_name: profileRow?.username ?? null,
-      },
-      stats: {
-        rank: score > 0 && statsRow?.rank != null ? statsRow.rank : null,
-        score,
-        matches_played: statsRow?.matches_played ?? 0,
-      },
-      achievements: achievementRows.map((r: IGetUserAchievementIdsResult) => r.achievement_id),
-      start_date: startIso,
-      end_date: endIso,
-    });
+    reply.send([
+      { address: resolved.resolved_address, address_type: 0, account_id: id },
+    ]);
   });
 };
