@@ -1,3 +1,4 @@
+import "./instrument"; // Sentry must init before all other code
 import TWEEN from '@tweenjs/tween.js';
 import { effectStreamService } from './EffectStreamService';
 import type { AchievementInfo } from './EffectStreamService';
