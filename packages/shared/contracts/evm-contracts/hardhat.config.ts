@@ -46,6 +46,13 @@ const config: HardhatUserConfig = createHardhatConfig({
     // This is needed to set once, to deploy contracts in testnet:
     // deno task -f @safe-solver/evm-contracts deploy:testnet
     // deno task -f @safe-solver/evm-contracts build:mod
+    arbitrum: {
+      type: "http",
+      chainId: 42161,
+   url: "https://arb-mainnet.g.alchemy.com/v2/API-KEY",
+      accounts: ["0000000000000000000000000000000000000000000000000000000000000000"], // Private key with funds to deploy contracts.
+    
+    },
     arbitrumSepolia: {
       type: "http",
       chainId: 421614,

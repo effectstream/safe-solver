@@ -21,7 +21,7 @@ const myDeployments: Deployment[] = [
     network: "arbitrum",
     parameters: {
       effectstreaml2Module: {
-        owner: "0x0000000000000000000000000000000000000000", // Contract owner address
+        owner: "0x6070845922feDe184ea3A4Cbe926776418101735", // Contract owner address
         fee: 0, // Contract fee
       },
     },
