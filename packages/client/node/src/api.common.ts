@@ -3,6 +3,7 @@ import { runPreparedQuery } from "@paimaexample/db";
 import {
   getAchievementsWithCompletedCount,
   getDelegatedFromAddresses,
+  getDelegationByAccountId,
   getGameInfo,
   getResolvedAddressByAccountId,
   getResolvedIdentityByAddress,
@@ -431,6 +432,21 @@ LIMIT $4 OFFSET $5`,
       account_id: Type.Union([Type.Number(), Type.Null()]),
     })
   );
+
+  server.get<{
+    Params: Static<typeof AccountParamsSchema>;
+  }>("/api/account/:id/delegation", async (request, reply) => {
+    const { id } = request.params;
+    const [delegation] = await runPreparedQuery(
+      getDelegationByAccountId.run({ account_id: id }, dbConn),
+      "getDelegationByAccountId"
+    );
+    if (!delegation) {
+      reply.code(404).send({ error: "No delegation found" });
+      return;
+    }
+    reply.send(delegation);
+  });
 
   server.get<{
     Params: Static<typeof AccountParamsSchema>;

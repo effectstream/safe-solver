@@ -1,6 +1,7 @@
 import { type Static, Type } from "@sinclair/typebox";
 import { runPreparedQuery } from "@paimaexample/db";
 import {
+  getAccountByDelegateAddress,
   getAccountProfile,
   getAddressByAddress,
   getGameState,
@@ -32,19 +33,34 @@ export const apiGame = async (
   }>("/api/gamestate/:walletAddress", async (request, reply) => {
     const { walletAddress } = request.params;
 
-    // Resolve address to account
+    // Resolve address to account (try direct address first, then delegation)
+    let accountId: number | null = null;
+
     const [addressInfo] = await runPreparedQuery(
       getAddressByAddress.run({ address: walletAddress }, dbConn),
       "getAddressByAddress"
     );
 
-    if (!addressInfo || !addressInfo.account_id) {
+    if (addressInfo?.account_id) {
+      accountId = addressInfo.account_id;
+    } else {
+      // Fallback: check if this is a delegated-to address
+      const [delegation] = await runPreparedQuery(
+        getAccountByDelegateAddress.run({ address: walletAddress }, dbConn),
+        "getAccountByDelegateAddress"
+      );
+      if (delegation?.account_id) {
+        accountId = delegation.account_id;
+      }
+    }
+
+    if (!accountId) {
       reply.code(404).send({ error: "Account not found" });
       return;
     }
 
     const [gameState] = await runPreparedQuery(
-      getGameState.run({ account_id: addressInfo.account_id }, dbConn),
+      getGameState.run({ account_id: accountId }, dbConn),
       "getGameState"
     );
 
@@ -82,13 +98,28 @@ export const apiGame = async (
   }>("/api/user/:walletAddress", async (request, reply) => {
     const { walletAddress } = request.params;
 
-    // Resolve address to account
+    // Resolve address to account (try direct address first, then delegation)
+    let userAccountId: number | null = null;
+
     const [addressInfo] = await runPreparedQuery(
       getAddressByAddress.run({ address: walletAddress }, dbConn),
       "getAddressByAddress"
     );
 
-    if (!addressInfo || !addressInfo.account_id) {
+    if (addressInfo?.account_id) {
+      userAccountId = addressInfo.account_id;
+    } else {
+      // Fallback: check if this is a delegated-to address
+      const [delegation] = await runPreparedQuery(
+        getAccountByDelegateAddress.run({ address: walletAddress }, dbConn),
+        "getAccountByDelegateAddress"
+      );
+      if (delegation?.account_id) {
+        userAccountId = delegation.account_id;
+      }
+    }
+
+    if (!userAccountId) {
       // New user or no account yet
       reply.send({
         accountId: -1,
@@ -100,7 +131,7 @@ export const apiGame = async (
     }
 
     const [profile] = await runPreparedQuery(
-      getAccountProfile.run({ account_id: addressInfo.account_id }, dbConn),
+      getAccountProfile.run({ account_id: userAccountId }, dbConn),
       "getAccountProfile"
     );
 
@@ -120,7 +151,7 @@ export const apiGame = async (
     }
 
     reply.send({
-      accountId: addressInfo.account_id,
+      accountId: userAccountId,
       balance: profile.balance ?? 0,
       lastLogin: profile.last_login_at
         ? new Date(profile.last_login_at).getTime()
