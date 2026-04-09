@@ -14,7 +14,6 @@ import {
   incrementGamesLost,
   incrementGamesWon,
   advanceGameRound,
-  getAccountProfile,
   insertScoreEntry,
   unlockAchievement,
   upsertDelegation,
@@ -144,18 +143,18 @@ stm.addStateTransition("checkSafe", function* (data) {
   const [gameState] = yield* World.resolve(getGameState, { account_id: accountId });
   if (!gameState || !gameState.is_ongoing) return;
 
-  const [accountProfile] = yield* World.resolve(getAccountProfile, { account_id: accountId });
-  if (!accountProfile) return;
-
   // next(min, max) is [min, max). We want integer index from 0 to safeCount-1.
   // There is a chance all are good!
   // .next returns inclusive of min and max.
 
   const badSafeIndex = Math.floor(data.randomGenerator.next(0, gameState.safe_count!));
 
-  // Make first safe always good, so they can play a before losing for the first time.
-  const isNewAccount = !(accountProfile.balance) || accountProfile.balance < 50;
-  const isBad = isNewAccount ? false : safeIndex === badSafeIndex;
+  // Make the first safe of a brand-new account's first game always good,
+  // so they experience one win before they can lose.
+  const isFirstEverRound = gameState.round === 1
+    && (gameState.games_won ?? 0) === 0
+    && (gameState.games_lost ?? 0) === 0;
+  const isBad = isFirstEverRound ? false : safeIndex === badSafeIndex;
   const prize = isBad ? 0 : calculatePrize(gameState.safe_count!, gameState.round!);
 
   console.log(`🎉 [checkSafe] Account: ${accountId}, Index: ${safeIndex}, IsBad: ${isBad}, Prize: ${prize}`);

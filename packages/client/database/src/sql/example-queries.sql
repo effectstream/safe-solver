@@ -64,7 +64,7 @@ SET round = round + 1, safe_count = :safe_count!
 WHERE account_id = :account_id!;
 
 /* @name GetGameState */
-SELECT round, safe_count, random_hash, is_ongoing, current_score FROM user_game_state WHERE account_id = :account_id!;
+SELECT round, safe_count, random_hash, is_ongoing, current_score, games_won, games_lost FROM user_game_state WHERE account_id = :account_id!;
 
 /* @name GetAddressByAddress */
 SELECT * FROM effectstream.addresses WHERE address = :address!;
