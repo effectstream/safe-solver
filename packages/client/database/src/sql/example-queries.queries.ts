@@ -341,6 +341,8 @@ export interface IGetGameStateParams {
 /** 'GetGameState' return type */
 export interface IGetGameStateResult {
   current_score: number | null;
+  games_lost: number | null;
+  games_won: number | null;
   is_ongoing: boolean | null;
   random_hash: string | null;
   round: number | null;
@@ -353,12 +355,12 @@ export interface IGetGameStateQuery {
   result: IGetGameStateResult;
 }
 
-const getGameStateIR: any = {"usedParamSet":{"account_id":true},"params":[{"name":"account_id","required":true,"transform":{"type":"scalar"},"locs":[{"a":105,"b":116}]}],"statement":"SELECT round, safe_count, random_hash, is_ongoing, current_score FROM user_game_state WHERE account_id = :account_id!"};
+const getGameStateIR: any = {"usedParamSet":{"account_id":true},"params":[{"name":"account_id","required":true,"transform":{"type":"scalar"},"locs":[{"a":128,"b":139}]}],"statement":"SELECT round, safe_count, random_hash, is_ongoing, current_score, games_won, games_lost FROM user_game_state WHERE account_id = :account_id!"};
 
 /**
  * Query generated from SQL:
  * ```
- * SELECT round, safe_count, random_hash, is_ongoing, current_score FROM user_game_state WHERE account_id = :account_id!
+ * SELECT round, safe_count, random_hash, is_ongoing, current_score, games_won, games_lost FROM user_game_state WHERE account_id = :account_id!
  * ```
  */
 export const getGameState = new PreparedQuery<IGetGameStateParams,IGetGameStateResult>(getGameStateIR);
