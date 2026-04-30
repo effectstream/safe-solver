@@ -76,7 +76,7 @@ export const config = new ConfigBuilder()
           chainUri: network.rpcUrls.default.http[0],
           startBlockHeight: arbTip,
           pollingInterval: 1000,
-          stepSize: 9,
+          stepSize: 30,
           confirmationDepth: 0,
         })
       )
