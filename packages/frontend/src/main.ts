@@ -15,6 +15,20 @@ import { particleManager } from './ParticleManager';
 import { initWalletUI, updateSetNameButtonLabel } from './Wallet';
 import { leaderboard } from './EffectStreamLeaderboard';
 
+const urlParams = new URLSearchParams(window.location.search);
+const isGameFrame = urlParams.get('game_frame') === 'true';
+const hideConnectWallet = urlParams.get('hide_connect_wallet') === 'true';
+
+if (isGameFrame) {
+  document.getElementById('leaderboard')?.classList.add('hidden');
+  document.getElementById('footer-bar')?.classList.add('hidden');
+  document.getElementById('footer-overlay')?.classList.add('hidden');
+}
+
+if (hideConnectWallet) {
+  document.getElementById('game-header')?.classList.add('hidden');
+}
+
 // Initialize Scene
 initScene(() => {
     fixBackgroundSize(backgroundTexture);
