@@ -3,14 +3,11 @@
 # Apply patches
 echo "🔧 Applying patches..."
 
-# Function to comment out a line at specific line number
 comment_line() {
     local file="$1"
     local line_num="$2"
-    local comment_text="$3"
     
     if [[ -f "$file" ]]; then
-        # Use sed to comment out the line (add // at the beginning)
         sed -i.bak "${line_num}s|^|// |" "$file"
         echo "✅ Commented line $line_num in $file"
     else
@@ -18,42 +15,19 @@ comment_line() {
     fi
 }
 
-# Function to replace content in a file
-replace_in_file() {
-    local file="$1"
-    local old_content="$2"
-    local new_content="$3"
-    
-    if [[ -f "$file" ]]; then
-        # Create backup first
-        cp "$file" "$file.bak"
-        
-        # Use perl for more reliable string replacement
-        # Only escape the search pattern, not the replacement text
-        perl -i -pe "s/Q$old_contentE/$new_content/g" "$file"
-        echo "✅ Replaced content in $file"
-    else
-        echo "⚠️  Warning: File $file not found"
-    fi
-}
-
-# Function to replace content using a temp file approach for complex strings
 replace_complex_content() {
     local file="$1"
     local old_content="$2"
     local new_content="$3"
     
     if [[ -f "$file" ]]; then
-        # Create backup first
         cp "$file" "$file.bak"
         
-        # Write old and new content to temp files
         local temp_old=$(mktemp)
         local temp_new=$(mktemp)
         printf '%s' "$old_content" > "$temp_old"
         printf '%s' "$new_content" > "$temp_new"
         
-        # Use python for reliable string replacement
         python3 -c "
 import sys
 with open('$file', 'r') as f:
@@ -67,7 +41,6 @@ with open('$file', 'w') as f:
     f.write(content)
 "
         
-        # Clean up temp files
         rm "$temp_old" "$temp_new"
         echo "✅ Replaced complex content in $file"
     else
@@ -75,34 +48,48 @@ with open('$file', 'w') as f:
     fi
 }
 
-# Apply Common Hardhat Patches
-shopt -s nullglob # Expands to nothing if no match is found
+shopt -s nullglob
 
 echo "Applying common Hardhat patches for versions 3.0.0-3.0.9..."
 
-# Patch hardhat compiler.js
-for dir in ./node_modules/.deno/hardhat@3.[0-1]*.[0-9]*/ ; do
+for dir in ./node_modules/hardhat@3.[0-1]*.[0-9]*/ ./node_modules/.bun/hardhat@3.[0-1]*.[0-9]*/ ; do
     file_to_patch="${dir}node_modules/hardhat/dist/src/internal/builtin-plugins/solidity/build-system/compiler/compiler.js"
+    if [[ ! -f "$file_to_patch" ]]; then
+        file_to_patch="${dir}dist/src/internal/builtin-plugins/solidity/build-system/compiler/compiler.js"
+    fi
     echo "Commenting out await stdoutFileHandle.close() in ${file_to_patch}..."
-    comment_line "$file_to_patch" 48 "await stdoutFileHandle.close();"
+    comment_line "$file_to_patch" 48
 done
 
-# Patch hardhat-utils fs.js 
-for dir in ./node_modules/.deno/@nomicfoundation+hardhat-utils@3.[0-1]*.[0-9]*/ ; do
+for dir in ./node_modules/@nomicfoundation/hardhat-utils@3.[0-1]*.[0-9]*/ ./node_modules/.bun/@nomicfoundation+hardhat-utils@3.[0-1]*.[0-9]*/ ; do
     file_to_patch="${dir}node_modules/@nomicfoundation/hardhat-utils/dist/src/fs.js"
+    if [[ ! -f "$file_to_patch" ]]; then
+        file_to_patch="${dir}dist/src/fs.js"
+    fi
     echo "Commenting out first await fileHandle?.close() in ${file_to_patch}..."
-    comment_line "$file_to_patch" 209 "await fileHandle?.close();"
+    comment_line "$file_to_patch" 209
     echo "Commenting out second await fileHandle?.close() in ${file_to_patch}..."
-    comment_line "$file_to_patch" 275 "await fileHandle?.close();"
+    comment_line "$file_to_patch" 275
 done
 
-shopt -u nullglob # Revert to default
+shopt -u nullglob
 
-echo "✅ All patches applied successfully"
+echo "Disabling ANSI colors in orchestrator log files..."
+for file in ./node_modules/.bun/@effectstream+orchestrator@*/node_modules/@effectstream/orchestrator/src/process-manager.ts; do
+    if [[ -f "$file" ]] && grep -q 'FORCE_COLOR: "true",' "$file" && ! grep -q 'NO_COLOR: "1"' "$file"; then
+        perl -i -pe 's/        FORCE_COLOR: "true",/        ...(logFile ? { NO_COLOR: "1", FORCE_COLOR: "0" } : { FORCE_COLOR: "true" }),/' "$file"
+        echo "✅ Patched orchestrator log colors in $file"
+    fi
+done
 
-# Apply Specific Patches
-echo "Replacing fetch-blob streams.cjs content..."
-replace_complex_content "./node_modules/.deno/fetch-blob@3.2.0/node_modules/fetch-blob/streams.cjs" "  // `node:stream/web` got introduced in v16.5.0 as experimental
+FETCH_BLOB="./node_modules/fetch-blob/streams.cjs"
+if [[ ! -f "$FETCH_BLOB" ]]; then
+    FETCH_BLOB=$(find ./node_modules/.bun -path '*/fetch-blob@*/node_modules/fetch-blob/streams.cjs' 2>/dev/null | head -1)
+fi
+
+if [[ -f "$FETCH_BLOB" ]]; then
+    echo "Replacing fetch-blob streams.cjs content..."
+    replace_complex_content "$FETCH_BLOB" "  // \`node:stream/web\` got introduced in v16.5.0 as experimental
   // and it's preferred over the polyfilled version. So we also
   // suppress the warning that gets emitted by NodeJS for using it.
   try {
@@ -120,9 +107,12 @@ replace_complex_content "./node_modules/.deno/fetch-blob@3.2.0/node_modules/fetc
     // fallback to polyfill implementation
     Object.assign(globalThis, require('web-streams-polyfill/dist/ponyfill.es2018.js'))
   }" "  Object.assign(globalThis, require('web-streams-polyfill/dist/ponyfill.es2018.js'))"
+fi
 
-echo "Replacing fetch-blob from.js imports..."
-replace_complex_content "./node_modules/.deno/fetch-blob@3.2.0/node_modules/fetch-blob/from.js" "import { statSync, createReadStream, promises as fs } from 'node:fs'
+FETCH_FROM="${FETCH_BLOB%/streams.cjs}/from.js"
+if [[ -f "$FETCH_FROM" ]]; then
+    echo "Replacing fetch-blob from.js imports..."
+    replace_complex_content "$FETCH_FROM" "import { statSync, createReadStream, promises as fs } from 'node:fs'
 import { basename } from 'node:path'
 import DOMException from 'node-domexception'
 
@@ -138,7 +128,6 @@ import Blob from './index.js'
 
 import { promises as stat } from 'node:fs'
 "
+fi
 
 echo "✅ All patches applied successfully"
-        
-        

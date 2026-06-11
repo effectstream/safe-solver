@@ -1,0 +1,36 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "ignoreDeprecations": "5.0",
+    "baseUrl": ".",
+    "types": ["bun", "fastify"],
+    "paths": {
+      "@effectstream/concise": ["./types/effectstream/concise.d.ts"],
+      "@effectstream/config": ["./types/effectstream/config.d.ts"],
+      "@effectstream/coroutine": ["./types/effectstream/coroutine.d.ts"],
+      "@effectstream/db": ["./types/effectstream/db.d.ts"],
+      "@effectstream/db/version": ["./types/effectstream/db-version.d.ts"],
+      "@effectstream/runtime": ["./types/effectstream/runtime.d.ts"],
+      "@effectstream/sm": ["./types/effectstream/sm.d.ts"],
+      "@effectstream/sm/builtin": ["./types/effectstream/sm-builtin.d.ts"],
+      "@effectstream/sm/grammar": ["./types/effectstream/sm-grammar.d.ts"],
+      "@effectstream/utils": ["./types/effectstream/utils.d.ts"],
+      "@effectstream/midnight-contracts/read-contract": ["./types/effectstream/midnight-read-contract.d.ts"],
+      "@effectstream/midnight-contracts/midnight-env": ["./types/effectstream/midnight-env.d.ts"],
+      "@safe-solver/data-types/config-dev": ["../../shared/data-types/src/config.dev.ts"],
+      "@safe-solver/data-types/config-preview": ["../../shared/data-types/src/config.preview.ts"],
+      "@safe-solver/data-types/config-mainnet": ["../../shared/data-types/src/config.mainnet.ts"],
+      "@safe-solver/data-types/grammar": ["../../shared/data-types/src/grammar.ts"],
+      "@safe-solver/data-types/validate-env": ["../../shared/data-types/src/validate-env.ts"],
+      "@safe-solver/database": ["../database/src/mod.ts"],
+      "@safe-solver/evm-contracts": ["./types/safe-solver/evm-contracts.d.ts"],
+      "@safe-solver/midnight-contract-midnight-data/contract": ["./types/safe-solver/midnight-contract.d.ts"]
+    }
+  },
+  "include": [
+    "src/main.dev.ts",
+    "src/main.preview.ts",
+    "src/main.mainnet.ts",
+    "types/**/*.d.ts"
+  ]
+}

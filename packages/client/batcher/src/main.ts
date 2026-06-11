@@ -1,5 +1,7 @@
+import "./validate-env.ts";
+
 import { main, suspend } from "effection";
-import { createNewBatcher, MidnightAdapter } from "@paimaexample/batcher";
+import { createNewBatcher, MidnightAdapter } from "@effectstream/batcher-sdk";
 import { config, storage } from "./config.ts";
 import * as midnightAdapters from "./adapter-midnight.ts";
 import { effectstreaml2Adapter } from "./adapter-effectstreaml2.ts";
@@ -25,7 +27,6 @@ for (const [contract, adapter] of Object.entries(midnightAdapters)) {
   }
 }
 
-// E2E-specific startup banner via state transition
 batcher
   .addStateTransition("startup", ({ publicConfig }) => {
     const banner =
@@ -56,13 +57,10 @@ batcher
 main(function* () {
   console.log("🚀 Starting Batcher...");
   try {
-    // Run the batcher with Effection structured concurrency
     yield* batcher.runBatcher();
   } catch (error) {
     console.error("❌ Batcher error:", error);
-    // Trigger graceful shutdown on error
     yield* batcher.gracefulShutdownOp();
   }
-  // Keep the main operation alive
   yield* suspend();
 });

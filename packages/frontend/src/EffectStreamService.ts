@@ -1,10 +1,10 @@
 import { LeaderboardEntry } from "./EffectStreamLeaderboard";
 import { getLocalWallet, truncateAddress } from "./EffectStreamWallet";
 import { EngineConfig } from "./EffectStreamEngineConfig";
-import { sendTransaction } from "@paimaexample/wallets";
+import { sendTransaction } from "@effectstream/wallets";
 import { showToast } from "./Utils";
-import { accountPayload_ as accountPayload } from "@paimaexample/wallets";
-// import { AddressType } from "@paimaexample/wallets";
+import { accountPayload_ as accountPayload } from "@effectstream/wallets";
+// import { AddressType } from "@effectstream/wallets";
 import { ENV } from "./EffectStreamEngineConfig";
 
 export interface AchievementInfo {

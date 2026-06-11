@@ -10,40 +10,37 @@ Safe Solver is a TypeScript on-chain turn-based game built with the Paima Engine
 
 ```bash
 # Initial setup
-deno install --allow-scripts && ./patch.sh
+bun install && ./patch.sh
 
 # Compile contracts
-deno task build:evm
-deno task build:midnight
+bun run build:evm
+bun run build:midnight
 
 # Full-stack dev (launches tmux TUI with 10+ processes: chains, indexer, proof server, batcher, backend, frontend)
-deno task dev
+bun run dev
 
 # Type-check all backend entry points
-deno task check
-
-# E2E tests
-deno task test
+bun run check
 
 # Regenerate TypeScript bindings after modifying SQL migrations or queries
-deno task -f @safe-solver/database pgtyped:update
+bun run build:pgtypes
 
 # Frontend only (separate npm project)
-cd packages/frontend && npm install && npm run dev
+cd packages/frontend && bun install && bun run dev
 
 # Deploy contracts to testnet (edit hardhat.config.ts network section first)
-cd packages/shared/contracts/evm-contracts && deno task deploy:testnet
+cd packages/shared/contracts/evm-contracts && bun run deploy:testnet
 
 # Run against testnet/mainnet
-deno task testnet
-deno task mainnet
+bun run preview
+bun run mainnet
 ```
 
 Dev URLs: Frontend http://localhost:5173, Backend API http://localhost:8000, Explorer http://localhost:10590
 
 ## Architecture
 
-**Runtime:** Deno workspaces for backend packages, npm for frontend only. Not using Turborepo/Lerna.
+**Runtime:** Bun workspaces for backend packages, npm/bun for frontend. Not using Turborepo/Lerna.
 
 **Core data flow:**
 1. User sends transaction -> EVM contract (or Midnight contract)
@@ -75,17 +72,17 @@ Dev URLs: Frontend http://localhost:5173, Backend API http://localhost:8000, Exp
 
 | Package | Runtime | Purpose |
 |---|---|---|
-| `@safe-solver/node` | Deno | Paima Engine runtime, state machine, Fastify API server |
-| `@safe-solver/database` | Deno | SQL migrations, pgtyped query bindings |
-| `@safe-solver/batcher` | Deno | Midnight blockchain transaction batcher |
-| `@safe-solver/data-types` | Deno | Grammar definitions, per-environment config |
-| `@safe-solver/evm-contracts` | Deno | Solidity contracts (Hardhat 3 + Ignition) |
-| `@safe-solver/midnight-contracts` | Deno | Midnight Compact privacy contracts |
-| `game-1` (frontend) | Node/npm | Three.js 3D game UI, wallet integration (Vite) |
+| `@safe-solver/node` | Bun | Effectstream runtime, state machine, Fastify API server |
+| `@safe-solver/database` | Bun | SQL migrations, pgtyped query bindings |
+| `@safe-solver/batcher` | Bun | Midnight blockchain transaction batcher |
+| `@safe-solver/data-types` | Bun | Grammar definitions, per-environment config |
+| `@safe-solver/evm-contracts` | Bun | Solidity contracts (Hardhat 3 + Ignition) |
+| `@safe-solver/midnight-contracts` | Bun | Midnight Compact privacy contracts |
+| `game-1` (frontend) | Bun/npm | Three.js 3D game UI, wallet integration (Vite) |
 
 ## Key Dependencies
 
-- **Paima Engine** (`@paimaexample/*` 0.10.0): Blockchain sync, state machine framework, orchestrator
+- **Effectstream** (`@effectstream/*` 0.100.20): Blockchain sync, state machine framework, orchestrator
 - **Effection**: Structured concurrency / coroutine framework for async operations
 - **pgtyped**: Type-safe SQL query generation
 - **@sinclair/typebox**: Runtime schema validation (API + grammar)
@@ -98,5 +95,4 @@ Dev URLs: Frontend http://localhost:5173, Backend API http://localhost:8000, Exp
 
 - Dev database: PGLite (in-memory, auto-created). Production: PostgreSQL via connection string.
 - Env files: `packages/client/node/.env.dev`, `.env.testnet`, `.env.preview`, `.env.mainnet`
-- System deps: Deno, Node.js, Compact 0.27.0, Forge (Foundry)
-- Deno lint excludes: `no-this-alias`, `require-yield`, `no-explicit-any`, `ban-types`, `no-unused-vars`, `no-slow-types`
+- System deps: Bun, Node.js, Compact 0.27.0, Forge (Foundry)

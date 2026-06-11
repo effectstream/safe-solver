@@ -1,4 +1,4 @@
-import { PaimaEngineConfig } from "@paimaexample/wallets";
+import { EffectstreamConfig } from "@effectstream/wallets";
 import { hardhat, arbitrumSepolia, arbitrum } from "viem/chains";
 
 export const ENV = {
@@ -7,22 +7,25 @@ export const ENV = {
   API_URL: import.meta.env.VITE_API_URL || "http://localhost:9999",
   CHAIN: import.meta.env.VITE_CHAIN || "hardhat",
   MIDNIGHT_NETWORK_ID: import.meta.env.VITE_MIDNIGHT_NETWORK_ID || "undeployed",
-}
+};
 
-const APP_NAME = "";
-const SYNC_PROTOCOL_NAME = "mainEvmRPC";
+const syncProtocolName = "mainEvmRPC";
+const useBatching = true;
+
+// Security-namespace prefix the wallet signs into every batched message. MUST
+// match the batcher's BatcherConfig.namespace and the node's
+// setSecurityNamespace(...) in packages/shared/data-types/src/config*.ts.
+const securityNamespace = "evm-midnight-node";
 
 const chains: Record<string, any> = { hardhat, arbitrumSepolia, arbitrum };
 const chain = chains[ENV.CHAIN] ?? hardhat;
-const useBatching = true;
 
-// Configuration
-export const EngineConfig = new PaimaEngineConfig(
-  APP_NAME, // app name
-  SYNC_PROTOCOL_NAME, // sync protocol name
-  ENV.L2_CONTRACT_ADDRESS, // L2 contract address
-  chain, // l2 chain
-  undefined, // use default abi
-  ENV.BATCHER_URL, // batcher url
-  useBatching // use batching
+export const EngineConfig = new EffectstreamConfig(
+  securityNamespace,
+  syncProtocolName,
+  ENV.L2_CONTRACT_ADDRESS,
+  chain,
+  undefined,
+  ENV.BATCHER_URL,
+  useBatching
 );

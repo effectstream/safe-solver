@@ -1,8 +1,8 @@
-import { PaimaSTM } from "@paimaexample/sm";
+import { Stm } from "@effectstream/sm";
 import { grammar } from "@safe-solver/data-types/grammar";
-import type { BaseStfInput } from "@paimaexample/sm";
-import type { StartConfigGameStateTransitions } from "@paimaexample/runtime";
-import { type SyncStateUpdateStream, World } from "@paimaexample/coroutine";
+import type { BaseStfInput } from "@effectstream/sm";
+import type { StartConfigGameStateTransitions } from "@effectstream/runtime";
+import { type SyncStateUpdateStream, World } from "@effectstream/coroutine";
 import {
   ensureAccountBalance,
   upsertGameState,
@@ -18,9 +18,9 @@ import {
   unlockAchievement,
   upsertDelegation,
 } from "@safe-solver/database";
-import type { WalletAddress, AddressType } from "@paimaexample/utils";
+import type { WalletAddress, AddressType } from "@effectstream/utils";
 
-const stm = new PaimaSTM<typeof grammar, any>(grammar);
+const stm = new Stm<typeof grammar, any>(grammar);
 
 function calculatePrize(numSafes: number, round: number): number {
   const prizes = [0.33, 0.22, 0.16, 0.13, 0.11];

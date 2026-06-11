@@ -1,6 +1,5 @@
-import * as log from "@std/log";
 import { Buffer } from "node:buffer";
-import * as path from "@std/path";
+import * as path from "node:path";
 import { writeFile } from "node:fs/promises";
 import { readdirSync, statSync } from "node:fs";
 
@@ -20,13 +19,13 @@ import {
   midnightNetworkConfig,
   getInitialShieldedState,
   safeStringifyProgress,
-} from "@paimaexample/midnight-contracts";
+} from "@effectstream/midnight-contracts";
 
 import type {
   DeployConfig,
   NetworkUrls,
   WalletResult,
-} from "@paimaexample/midnight-contracts";
+} from "@effectstream/midnight-contracts";
 
 import {
   midnight_data,
@@ -40,7 +39,7 @@ import type { NetworkId } from "npm:@midnight-ntwrk/wallet-sdk-abstractions@2.0.
 // ============================================================================
 
 function getEnv(key: string): string | undefined {
-  return Deno.env.get(key);
+  return process.env[key];
 }
 
 function hasManagedArtifacts(dir: string): boolean {
@@ -135,7 +134,7 @@ async function deployWithDust(
     midnightNetworkConfig.id) as NetworkId.NetworkId;
   resolvedNetworkUrls.id = resolvedNetworkId;
 
-  log.info(
+  console.log(
     `Network: ${resolvedNetworkId} | indexer=${resolvedNetworkUrls.indexer} node=${resolvedNetworkUrls.node} proof=${resolvedNetworkUrls.proofServer}`,
   );
   setNetworkId(resolvedNetworkId);
@@ -154,7 +153,7 @@ async function deployWithDust(
 
   try {
     // ---- Build wallet ----
-    log.info("Building wallet...");
+    console.log("Building wallet...");
     const walletSeed = seedOrMnemonic.seed || midnightNetworkConfig.walletSeed;
     if (!walletSeed) throw new Error("No seed provided");
 
@@ -164,39 +163,39 @@ async function deployWithDust(
       resolvedNetworkId,
     );
 
-    log.info(`Wallet seed: ${walletSeed}`);
-    log.info(`Dust address: ${walletResult.dustAddress}`);
-    log.info(`Unshielded address: ${walletResult.unshieldedAddress}`);
+    console.log(`Wallet seed: ${walletSeed}`);
+    console.log(`Dust address: ${walletResult.dustAddress}`);
+    console.log(`Unshielded address: ${walletResult.unshieldedAddress}`);
 
     // ---- Sync and show ALL balances ----
-    log.info("Syncing wallet (shielded + unshielded + dust)...");
+    console.log("Syncing wallet (shielded + unshielded + dust)...");
     const { shieldedBalance, unshieldedBalance, dustBalance } =
       await syncAndWaitForFunds(walletResult.wallet);
 
-    log.info("==========================================");
-    log.info("Wallet Balances");
-    log.info("==========================================");
-    log.info(`Shielded Balance:   ${shieldedBalance} NIGHT`);
-    log.info(`Unshielded Balance: ${unshieldedBalance} NIGHT`);
-    log.info(`Dust Balance:       ${dustBalance} DUST`);
-    log.info("==========================================");
+    console.log("==========================================");
+    console.log("Wallet Balances");
+    console.log("==========================================");
+    console.log(`Shielded Balance:   ${shieldedBalance} NIGHT`);
+    console.log(`Unshielded Balance: ${unshieldedBalance} NIGHT`);
+    console.log(`Dust Balance:       ${dustBalance} DUST`);
+    console.log("==========================================");
 
     // ---- Ensure dust is available for tx fees ----
     let currentDust = dustBalance;
     if (currentDust === 0n) {
       if (unshieldedBalance > 0n) {
-        log.info("Dust is 0 but unshielded funds available. Registering Night UTXOs for dust generation...");
+        console.log("Dust is 0 but unshielded funds available. Registering Night UTXOs for dust generation...");
         const success = await registerNightForDust(walletResult);
         if (success) {
           currentDust = await waitForDustFunds(walletResult.wallet, {
             timeoutMs: 60_000,
           });
-          log.info(`Dust after registration: ${currentDust} DUST`);
+          console.log(`Dust after registration: ${currentDust} DUST`);
         } else {
-          log.warn("Dust registration failed. Deployment may fail due to insufficient fees.");
+          console.warn("Dust registration failed. Deployment may fail due to insufficient fees.");
         }
       } else {
-        log.warn("No dust and no unshielded funds. Deployment will likely fail.");
+        console.warn("No dust and no unshielded funds. Deployment will likely fail.");
       }
     }
 
@@ -209,10 +208,10 @@ async function deployWithDust(
       deployArgs = [...deployArgs.slice(0, -1), initialOwner];
     }
 
-    log.info("Wallet built successfully.");
+    console.log("Wallet built successfully.");
 
     // ---- Configure providers ----
-    log.info("Configuring providers...");
+    console.log("Configuring providers...");
     const deployPrivateStateStoreName = `${privateStateStoreName}-deploy`;
 
     const providers = configureMidnightNodeProviders(
@@ -226,10 +225,10 @@ async function deployWithDust(
       zkConfigPath,
       walletResult.unshieldedKeystore,
     );
-    log.info("Providers configured.");
+    console.log("Providers configured.");
 
     // ---- Deploy contract ----
-    log.info("Deploying contract...");
+    console.log("Deploying contract...");
 
     const MyCompiledContract = CompiledContract.make(
       config.contractName,
@@ -246,34 +245,28 @@ async function deployWithDust(
         never
       >;
       privateStateId: PrivateStateId;
-      // deno-lint-ignore no-explicit-any
       initialPrivateState: Contract.PrivateState<any>;
       signingKey?: SigningKey;
-      // deno-lint-ignore no-explicit-any
       args: Contract.InitializeParameters<any>;
     } = {
-      // deno-lint-ignore no-explicit-any
       compiledContract: MyCompiledContract as any,
       privateStateId: config.privateStateId as PrivateStateId,
-      // deno-lint-ignore no-explicit-any
       initialPrivateState: config.initialPrivateState as Contract.PrivateState<any>,
       args: (deployArgs && deployArgs.length > 0
         ? deployArgs
-        // deno-lint-ignore no-explicit-any
         : []) as Contract.InitializeParameters<any>,
       signingKey: undefined,
     };
 
     const deployedContract = await deployContract(
       providers,
-      // deno-lint-ignore no-explicit-any
       deployOptions as any,
     );
-    log.info("Contract deployed.");
+    console.log("Contract deployed.");
 
     const contractAddress =
       deployedContract.deployTxData.public.contractAddress;
-    log.info(`Contract address: ${contractAddress}`);
+    console.log(`Contract address: ${contractAddress}`);
 
     // Save address to network-specific file
     const baseContractFileName =
@@ -289,27 +282,27 @@ async function deployWithDust(
     const outputPath = path.join(contractDir, contractFileDir, outputFileName);
 
     await writeFile(outputPath, JSON.stringify({ contractAddress }, null, 2));
-    log.info(`Contract address saved to ${outputPath} (network: ${resolvedNetworkId})`);
+    console.log(`Contract address saved to ${outputPath} (network: ${resolvedNetworkId})`);
 
     return contractAddress;
   } catch (e) {
     if (e instanceof Error) {
-      log.error(`Deployment failed: ${e.message}`);
+      console.error(`Deployment failed: ${e.message}`);
     } else {
-      log.error("An unknown error occurred during deployment.");
+      console.error("An unknown error occurred during deployment.");
     }
     throw e;
   } finally {
     if (walletResult) {
-      log.info("Closing wallet...");
+      console.log("Closing wallet...");
       try {
         await walletResult.wallet.stop();
       } catch {
         // Ignore close errors
       }
-      log.info("Wallet closed.");
+      console.log("Wallet closed.");
     }
-    log.info("Waiting for Level DB cleanup...");
+    console.log("Waiting for Level DB cleanup...");
     await new Promise((resolve) => setTimeout(resolve, 500));
   }
 }
@@ -327,9 +320,9 @@ const start = async () => {
 start()
   .then(() => {
     console.log("Deployment successful");
-    Deno.exit(0);
+    process.exit(0);
   })
   .catch((e: unknown) => {
     console.error("Unhandled error:", e);
-    Deno.exit(1);
+    process.exit(1);
   });

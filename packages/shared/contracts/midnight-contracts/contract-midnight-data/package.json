@@ -1,0 +1,17 @@
+{
+  "name": "@safe-solver/midnight-contract-midnight-data",
+  "version": "0.3.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/_index.ts",
+    "./witnesses": "./src/witnesses.ts",
+    "./contract": "./src/managed/midnight-data/contract/index.js"
+  },
+  "scripts": {
+    "compact": "compact compile +0.30.0 src/midnight-data.compact src/managed/midnight-data",
+    "contract:compile": "bun run compact"
+  },
+  "devDependencies": {
+    "vitest": "^3.2.4"
+  }
+}
