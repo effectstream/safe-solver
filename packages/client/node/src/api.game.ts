@@ -1,5 +1,5 @@
 import { type Static, Type } from "@sinclair/typebox";
-import { runPreparedQuery } from "@paimaexample/db";
+import { runPreparedQuery } from "@effectstream/db";
 import {
   getAccountByDelegateAddress,
   getAccountProfile,
@@ -7,10 +7,10 @@ import {
   getGameState,
 } from "@safe-solver/database";
 import type { Pool } from "pg";
-import type fastify from "fastify";
+import type { FastifyInstance } from "fastify";
 
 export const apiGame = async (
-  server: fastify.FastifyInstance,
+  server: FastifyInstance,
   dbConn: Pool
 ): Promise<void> => {
   // Game State Endpoint

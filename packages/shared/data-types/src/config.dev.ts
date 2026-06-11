@@ -1,21 +1,20 @@
 import { contractAddressesEvmMain } from "@safe-solver/evm-contracts";
-import { readMidnightContract } from "@paimaexample/midnight-contracts/read-contract";
+import { readMidnightContract } from "@effectstream/midnight-contracts/read-contract";
 import * as midnightDataContract from "@safe-solver/midnight-contract-midnight-data/contract";
 
 import {
   ConfigBuilder,
   ConfigNetworkType,
   ConfigSyncProtocolType,
-} from "@paimaexample/config";
+} from "@effectstream/config";
 import { hardhat } from "viem/chains";
-import { getConnection } from "@paimaexample/db";
-import { midnightNetworkConfig } from "@paimaexample/midnight-contracts/midnight-env";
-import { dirname, resolve } from "@std/path";
+import { getConnection } from "@effectstream/db";
+import { midnightNetworkConfig } from "@effectstream/midnight-contracts/midnight-env";
+import path from "node:path";
 
-const currentDir = dirname(new URL(import.meta.url).pathname);
-const baseDir = resolve(currentDir, "..", "..", "contracts", "midnight-contracts");
+const baseDir = path.join(import.meta.dirname ?? '', '..', '..', 'contracts', 'midnight-contracts');
 
-import * as builtin from "@paimaexample/sm/builtin";
+import * as builtin from "@effectstream/sm/builtin";
 
 if (midnightNetworkConfig.id !== 'undeployed') {
   throw new Error("Invalid midnight network id for dev environment");
@@ -49,7 +48,7 @@ try {
 }
 
 export const config = new ConfigBuilder()
-  .setNamespace((builder) => builder.setSecurityNamespace("[scope]"))
+  .setNamespace((builder) => builder.setSecurityNamespace("evm-midnight-node"))
   .buildNetworks((builder) =>
     builder
       .addNetwork({
@@ -115,7 +114,7 @@ export const config = new ConfigBuilder()
         (syncProtocols) => syncProtocols.mainEvmRPC,
         (network, deployments, syncProtocol) => ({
           name: "primitive_effectstreaml2",
-          type: builtin.PrimitiveTypeEVMPaimaL2,
+          type: builtin.PrimitiveTypeEVMEffectstreamL2,
           startBlockHeight: 0,
           contractAddress:
             contractAddressesEvmMain().chain31337[

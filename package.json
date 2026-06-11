@@ -1,5 +1,42 @@
 {
-    "dependencies": {
-        "@electric-sql/pglite": "^0.3.14"
-    }
+  "name": "safe-solver",
+  "private": true,
+  "workspaces": [
+    "packages/client/*",
+    "packages/shared/data-types",
+    "packages/shared/contracts/evm-contracts",
+    "packages/shared/contracts/midnight-contracts",
+    "packages/shared/contracts/midnight-contracts/contract-midnight-data",
+    "packages/frontend"
+  ],
+  "scripts": {
+    "dev": "NODE_ENV=development EFFECTSTREAM_ENV=dev bunx orchestrator start",
+    "preview": "NODE_ENV=development EFFECTSTREAM_ENV=preview bunx orchestrator start start.preview.ts",
+    "mainnet": "NODE_ENV=production EFFECTSTREAM_ENV=mainnet bunx orchestrator start start.mainnet.ts",
+    "check": "bun run --filter @safe-solver/node check",
+    "build:evm": "bun run --filter @safe-solver/evm-contracts build:mod",
+    "build:midnight": "bun run --filter @safe-solver/midnight-contract-midnight-data compact",
+    "build:pgtypes": "bun run --filter @safe-solver/database pgtyped:update",
+    "postinstall": "./patch.sh"
+  },
+  "effectstream": {
+    "default": "start.dev.ts"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "^0.3.14",
+    "@effectstream/evm-contracts": "0.100.20",
+    "@effectstream/midnight-contracts": "0.100.20",
+    "@effectstream/orchestrator": "0.100.20",
+    "@midnight-ntwrk/wallet-sdk-address-format": "3.1.0",
+    "wait-on": "8.0.3"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3.13",
+    "typescript": "~5.9.3"
+  },
+  "overrides": {
+    "@effect/platform": "0.96.1",
+    "@midnight-ntwrk/ledger-v8": "8.0.3",
+    "hardhat": "3.9.0"
+  }
 }

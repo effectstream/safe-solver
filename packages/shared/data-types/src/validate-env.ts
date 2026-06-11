@@ -5,13 +5,17 @@ export interface EnvVarSpec {
   defaultValue?: string;
 }
 
+function getEnvVar(name: string): string | undefined {
+  return process.env[name];
+}
+
 export function validateEnv(programName: string, specs: EnvVarSpec[]): void {
   const maxNameLen = Math.max(...specs.map((s) => s.name.length));
   const rows: string[] = [];
   const missing: string[] = [];
 
   for (const spec of specs) {
-    const raw = Deno.env.get(spec.name);
+    const raw = getEnvVar(spec.name);
     let status: string;
     let display: string;
     let tag = "";
@@ -26,6 +30,7 @@ export function validateEnv(programName: string, specs: EnvVarSpec[]): void {
     } else if (spec.defaultValue != null) {
       status = "DEFAULT";
       display = spec.secret ? "****" : spec.defaultValue;
+      process.env[spec.name] ??= spec.defaultValue;
     } else {
       status = "MISSING";
       display = "(not set)";
@@ -55,7 +60,7 @@ export function validateEnv(programName: string, specs: EnvVarSpec[]): void {
       console.error(`  - ${name}`);
     }
     console.error("Exiting.");
-    Deno.exit(1);
+    process.exit(1);
   }
 
   console.log("All required environment variables are set.\n");

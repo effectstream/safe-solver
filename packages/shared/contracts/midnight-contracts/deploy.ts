@@ -1,13 +1,13 @@
 import {
   deployMidnightContract,
-} from "@paimaexample/midnight-contracts/deploy";
+} from "@effectstream/midnight-contracts/deploy";
 
 import {
   midnight_data,
   witnesses as midnightDataWitnesses,
 } from "./contract-midnight-data/src/index.original.ts";
 
-import type { DeployConfig } from "@paimaexample/midnight-contracts/types";
+import type { DeployConfig } from "@effectstream/midnight-contracts/types";
 
 const configs: DeployConfig[] = [
   {
@@ -32,9 +32,9 @@ const start = async () => {
 start()
   .then(() => {
     console.log("Deployment successful");
-    Deno.exit(0);
+    process.exit(0);
   })
   .catch((e: unknown) => {
     console.error("Unhandled error:", e);
-    Deno.exit(1);
+    process.exit(1);
   });

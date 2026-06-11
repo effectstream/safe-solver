@@ -1,21 +1,21 @@
 import { contractAddressesEvmMain } from "@safe-solver/evm-contracts";
-import { readMidnightContract } from "@paimaexample/midnight-contracts/read-contract";
+import { readMidnightContract } from "@effectstream/midnight-contracts/read-contract";
 import * as midnightDataContract from "@safe-solver/midnight-contract-midnight-data/contract";
 
 import {
   ConfigBuilder,
   ConfigNetworkType,
   ConfigSyncProtocolType,
-} from "@paimaexample/config";
+} from "@effectstream/config";
 import { arbitrum } from "viem/chains";
-import { midnightNetworkConfig } from "@paimaexample/midnight-contracts/midnight-env";
+import { midnightNetworkConfig } from "@effectstream/midnight-contracts/midnight-env";
 
-import * as builtin from "@paimaexample/sm/builtin";
-import { dirname, resolve } from "@std/path";
+import * as builtin from "@effectstream/sm/builtin";
+import path from "node:path";
 
-const currentDir = dirname(new URL(import.meta.url).pathname);
+const baseDir = path.join(import.meta.dirname ?? '', '..', '..', 'contracts', 'midnight-contracts');
 
-const EVM_RPC_URL = Deno.env.get("ARBITRUM_ONE_RPC") as string;
+const EVM_RPC_URL = process.env.ARBITRUM_ONE_RPC as string;
 if (!EVM_RPC_URL) {
   throw new Error("ARBITRUM_ONE_RPC is not set");
 }
@@ -28,7 +28,7 @@ let launchStartTime: number | undefined;
 let arbTip: number = 1;
 
 export const config = new ConfigBuilder()
-  .setNamespace((builder) => builder.setSecurityNamespace("[scope]"))
+  .setNamespace((builder) => builder.setSecurityNamespace("evm-midnight-node"))
   .buildNetworks((builder) =>
     builder
       .addNetwork({
@@ -100,7 +100,7 @@ export const config = new ConfigBuilder()
         (syncProtocols) => syncProtocols.mainEvmRPC,
         (network, deployments, syncProtocol) => ({
           name: "primitive_effectstreaml2",
-          type: builtin.PrimitiveTypeEVMPaimaL2,
+          type: builtin.PrimitiveTypeEVMEffectstreamL2,
           startBlockHeight: 0,
           contractAddress:
             contractAddressesEvmMain().chain42161[
@@ -118,7 +118,7 @@ export const config = new ConfigBuilder()
           contractAddress: readMidnightContract(
             "contract-midnight-data",
             {
-              baseDir: resolve(currentDir, "..", "..", "contracts", "midnight-contracts"),
+              baseDir,
               networkId: midnightNetworkConfig.id,
             },
           ).contractAddress,
