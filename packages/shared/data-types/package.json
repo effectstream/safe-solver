@@ -12,12 +12,12 @@
     "./validate-env": "./src/validate-env.ts"
   },
   "dependencies": {
-    "@effectstream/concise": "0.100.20",
-    "@effectstream/config": "0.100.20",
-    "@effectstream/db": "0.100.20",
-    "@effectstream/midnight-contracts": "0.100.20",
-    "@effectstream/sm": "0.100.20",
-    "@effectstream/utils": "0.100.20",
+    "@effectstream/concise": "0.100.21",
+    "@effectstream/config": "0.100.21",
+    "@effectstream/db": "0.100.21",
+    "@effectstream/midnight-contracts": "0.100.21",
+    "@effectstream/sm": "0.100.21",
+    "@effectstream/utils": "0.100.21",
     "@safe-solver/evm-contracts": "workspace:*",
     "@safe-solver/midnight-contract-midnight-data": "workspace:*",
     "@sinclair/typebox": "0.34.41",
