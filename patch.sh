@@ -130,4 +130,17 @@ import { promises as stat } from 'node:fs'
 "
 fi
 
+echo "Patching @seriousme/opifex socket.js async close/write rejections (Bun turns the unhandled rejection into process.exit(1))..."
+for file in ./node_modules/@seriousme/opifex/dist/socket/socket.js ./node_modules/.bun/@seriousme+opifex@*/node_modules/@seriousme/opifex/dist/socket/socket.js; do
+    if [[ -f "$file" ]]; then
+        if grep -q 'this.writer.close();' "$file"; then
+            perl -i -pe 's/this\.writer\.close\(\);/this.writer.close().catch(() => {});/' "$file"
+            perl -i -pe 's/this\.writer\.write\(data\);/this.writer.write(data).catch(() => {});/' "$file"
+            echo "✅ Patched opifex socket.js in $file"
+        else
+            echo "ℹ️  opifex socket.js already patched (or shape changed): $file"
+        fi
+    fi
+done
+
 echo "✅ All patches applied successfully"
