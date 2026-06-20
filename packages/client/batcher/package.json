@@ -9,12 +9,12 @@
     "start": "bun run src/main.ts"
   },
   "dependencies": {
-    "@effectstream/batcher-sdk": "0.100.27",
-    "@effectstream/concise": "0.100.27",
-    "@effectstream/coroutine": "0.100.27",
-    "@effectstream/crypto": "0.100.27",
-    "@effectstream/midnight-contracts": "0.100.27",
-    "@effectstream/utils": "0.100.27",
+    "@effectstream/batcher-sdk": "0.100.28",
+    "@effectstream/concise": "0.100.28",
+    "@effectstream/coroutine": "0.100.28",
+    "@effectstream/crypto": "0.100.28",
+    "@effectstream/midnight-contracts": "0.100.28",
+    "@effectstream/utils": "0.100.28",
     "@safe-solver/data-types": "workspace:*",
     "@safe-solver/evm-contracts": "workspace:*",
     "@safe-solver/midnight-contract-midnight-data": "workspace:*",
