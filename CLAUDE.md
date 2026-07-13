@@ -82,7 +82,7 @@ Dev URLs: Frontend http://localhost:5173, Backend API http://localhost:8000, Exp
 
 ## Key Dependencies
 
-- **Effectstream** (`@effectstream/*` 0.100.21): Blockchain sync, state machine framework, orchestrator
+- **Effectstream** (`@effectstream/*` 0.101.1): Blockchain sync, state machine framework, orchestrator
 - **Effection**: Structured concurrency / coroutine framework for async operations
 - **pgtyped**: Type-safe SQL query generation
 - **@sinclair/typebox**: Runtime schema validation (API + grammar)
